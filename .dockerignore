@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+.git
+Docs
+Screenshots
+Test
+*.xlsm

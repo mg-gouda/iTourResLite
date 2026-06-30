@@ -1,0 +1,28 @@
+{
+  "name": "itour-reservation-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:up": "docker compose up -d postgres && docker compose up api web",
+    "dev:down": "docker compose down",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @itour/db generate",
+    "db:migrate": "pnpm --filter @itour/db migrate",
+    "db:seed": "pnpm --filter @itour/db seed",
+    "db:studio": "pnpm --filter @itour/db studio",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.4"
+}

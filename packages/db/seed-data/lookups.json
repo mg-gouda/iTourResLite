@@ -1,0 +1,72 @@
+{
+  "mealBasis": [
+    "AI",
+    "BB",
+    "HB",
+    "FB",
+    "SAI",
+    "BO"
+  ],
+  "bookingStatus": [
+    "Confirmed",
+    "CXL",
+    "Pending",
+    "Sent",
+    "No Show",
+    "Bubble",
+    "Stop Sale"
+  ],
+  "tourOperator": [
+    "PAX",
+    "JMB",
+    "MYW",
+    "TRV"
+  ],
+  "market": [
+    "WE",
+    "EE",
+    "UK",
+    "TUR",
+    "IT",
+    "FR"
+  ],
+  "resort": [
+    "SSH",
+    "HRG",
+    "LXR",
+    "CAI",
+    "RMF",
+    "TCP",
+    "MAK",
+    "SAF",
+    "SMB",
+    "SAH",
+    "DHB",
+    "NWB"
+  ],
+  "roomCategory": [
+    "DBL",
+    "SGL",
+    "TPL",
+    "Family",
+    "Suite",
+    "J. Suite"
+  ],
+  "paymentMethod": [
+    "VCR",
+    "Cash",
+    "DD",
+    "Bubble",
+    "3rd Party"
+  ],
+  "currency": [
+    "USD",
+    "EUR",
+    "GBP",
+    "EGP"
+  ],
+  "spo": [
+    "Yes",
+    "N/A"
+  ]
+}

@@ -1,0 +1,213 @@
+// iTour Reservation App — data model (see iTourResLite.md §4)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  AGENT
+  ACCOUNTANT
+  VIEWER
+}
+
+enum BookingStatus {
+  Confirmed
+  CXL
+  Pending
+  Sent
+  NoShow   @map("No Show")
+  Bubble
+  StopSale @map("Stop Sale")
+}
+
+enum RoomCategory {
+  DBL
+  SGL
+  TPL
+  Family
+  Suite
+  JSuite @map("J. Suite")
+}
+
+enum MealBasis {
+  AI
+  BB
+  HB
+  FB
+  SAI
+  BO
+}
+
+enum PaymentMethod {
+  VCR
+  Cash
+  DD
+  Bubble
+  ThirdParty @map("3rd Party")
+}
+
+enum Currency {
+  USD
+  EUR
+  GBP
+  EGP
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         Role      @default(VIEWER)
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  bookings     Booking[] @relation("CreatedBy")
+}
+
+model TourOperator {
+  id       String    @id @default(cuid())
+  code     String    @unique
+  name     String?
+  active   Boolean   @default(true)
+  bookings Booking[]
+}
+
+model Market {
+  id       String    @id @default(cuid())
+  code     String    @unique
+  name     String?
+  active   Boolean   @default(true)
+  bookings Booking[]
+}
+
+model Resort {
+  id       String    @id @default(cuid())
+  code     String    @unique
+  name     String?
+  active   Boolean   @default(true)
+  hotels   Hotel[]
+  bookings Booking[]
+}
+
+model Hotel {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  resortId  String?
+  resort    Resort?         @relation(fields: [resortId], references: [id])
+  active    Boolean         @default(true)
+  roomTypes HotelRoomType[]
+  bookings  Booking[]
+  stopSales StopSale[]
+}
+
+model HotelRoomType {
+  id         String     @id @default(cuid())
+  hotelId    String
+  hotel      Hotel      @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  name       String
+  allocation Int        @default(0)
+  active     Boolean    @default(true)
+  bookings   Booking[]
+  stopSales  StopSale[]
+
+  @@unique([hotelId, name])
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  bookingDate    DateTime
+  hotelStatus    BookingStatus
+  toStatus       BookingStatus
+  tourOperatorId String
+  tourOperator   TourOperator  @relation(fields: [tourOperatorId], references: [id])
+  marketId       String
+  market         Market        @relation(fields: [marketId], references: [id])
+  toBookingRef   String
+  sejourRef      String?
+  resortId       String
+  resort         Resort        @relation(fields: [resortId], references: [id])
+  hotelId        String
+  hotel          Hotel         @relation(fields: [hotelId], references: [id])
+  hotelRoomTypeId String
+  hotelRoomType  HotelRoomType @relation(fields: [hotelRoomTypeId], references: [id])
+  arrivalDate    DateTime
+  departureDate  DateTime
+  // nights derived = departureDate - arrivalDate
+  roomCategory   RoomCategory
+  numRooms       Int
+  adults         Int           @default(0)
+  children       Int           @default(0)
+  infants        Int           @default(0)
+  mealBasis      MealBasis
+  guestNames     String?
+  child1Age      Int?
+  child1Dob      DateTime?
+  child2Age      Int?
+  child2Dob      DateTime?
+  costUsd        Decimal       @default(0) @db.Decimal(12, 2)
+  sellingUsd     Decimal       @default(0) @db.Decimal(12, 2)
+  // plUsd derived = sellingUsd - costUsd
+  costEur        Decimal       @default(0) @db.Decimal(12, 2)
+  sellingEur     Decimal       @default(0) @db.Decimal(12, 2)
+  // plEur derived = (sellingEur - costEur) + visaHandling
+  paymentMethod  PaymentMethod
+  paymentOptionDate DateTime?
+  accountingRemarks String?
+  visaHandling   Decimal       @default(0) @db.Decimal(12, 2)
+  arrFlightNo    String?
+  arrFlightTime  String?
+  depFlightNo    String?
+  depFlightTime  String?
+  meetAssistVisa String?
+  remarks        String?
+  ebdPercent     Decimal       @default(0) @db.Decimal(6, 4) // fraction; 0.05 = 5%
+  ebdPaymentDate DateTime?
+  // ebdAmountUsd derived = ebdPercent * costUsd
+  // ebdAmountEur derived = ebdPercent * costEur
+  guestNameRebooked String?
+  createdById    String?
+  createdBy      User?         @relation("CreatedBy", fields: [createdById], references: [id])
+  deletedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([toBookingRef])
+  @@index([hotelId, arrivalDate, departureDate])
+  @@index([hotelRoomTypeId])
+}
+
+model StopSale {
+  id              String        @id @default(cuid())
+  hotelId         String
+  hotel           Hotel         @relation(fields: [hotelId], references: [id])
+  hotelRoomTypeId String?
+  hotelRoomType   HotelRoomType? @relation(fields: [hotelRoomTypeId], references: [id])
+  qty             Int
+  fromDate        DateTime
+  toDate          DateTime
+  createdAt       DateTime      @default(now())
+
+  @@index([hotelId, fromDate, toDate])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // CREATE | UPDATE | DELETE
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+}
