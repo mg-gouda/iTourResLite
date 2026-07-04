@@ -4,15 +4,8 @@
  * Re-runnable: lookups/hotels/users are upserted; bookings + stop sales are replaced.
  */
 import { readFileSync } from "node:fs";
-import { hashPassword } from "@itour/shared";
-import {
-  PrismaClient,
-  BookingStatus,
-  RoomCategory,
-  MealBasis,
-  PaymentMethod,
-  Role,
-} from "@prisma/client";
+import { hashPassword } from "../../shared/src/password";
+import { PrismaClient, Role } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -23,45 +16,45 @@ function load<T>(file: string): T {
 }
 
 const norm = (s: string | null | undefined) =>
-  (s ?? "").replace(/ /g, " ").replace(/\s+/g, " ").trim().toUpperCase();
-// Drop a trailing "(XXX)" resort-code suffix for fuzzy hotel matching.
+  (s ?? "").replace(/ /g, " ").replace(/\s+/g, " ").trim().toUpperCase();
 const stripSuffix = (s: string) => norm(s).replace(/\s*\([^)]*\)\s*$/, "").trim();
 const suffixCode = (s: string) => {
   const m = (s ?? "").match(/\(([^)]+)\)\s*$/);
   return m ? m[1].trim().toUpperCase() : null;
 };
 
-const STATUS: Record<string, BookingStatus> = {
-  CONFIRMED: BookingStatus.Confirmed,
-  CXL: BookingStatus.CXL,
-  PENDING: BookingStatus.Pending,
-  SENT: BookingStatus.Sent,
-  "NO SHOW": BookingStatus.NoShow,
-  BUBBLE: BookingStatus.Bubble,
-  "STOP SALE": BookingStatus.StopSale,
+// String value maps (no Prisma enums — fields are String in schema)
+const STATUS: Record<string, string> = {
+  CONFIRMED: "Confirmed",
+  CXL: "CXL",
+  PENDING: "Pending",
+  SENT: "Sent",
+  "NO SHOW": "NoShow",
+  BUBBLE: "Bubble",
+  "STOP SALE": "StopSale",
 };
-const ROOMCAT: Record<string, RoomCategory> = {
-  DBL: RoomCategory.DBL,
-  SGL: RoomCategory.SGL,
-  TPL: RoomCategory.TPL,
-  FAMILY: RoomCategory.Family,
-  SUITE: RoomCategory.Suite,
-  "J. SUITE": RoomCategory.JSuite,
+const ROOMCAT: Record<string, string> = {
+  DBL: "DBL",
+  SGL: "SGL",
+  TPL: "TPL",
+  FAMILY: "Family",
+  SUITE: "Suite",
+  "J. SUITE": "JSuite",
 };
-const MEAL: Record<string, MealBasis> = {
-  AI: MealBasis.AI,
-  BB: MealBasis.BB,
-  HB: MealBasis.HB,
-  FB: MealBasis.FB,
-  SAI: MealBasis.SAI,
-  BO: MealBasis.BO,
+const MEAL: Record<string, string> = {
+  AI: "AI",
+  BB: "BB",
+  HB: "HB",
+  FB: "FB",
+  SAI: "SAI",
+  BO: "BO",
 };
-const PAY: Record<string, PaymentMethod> = {
-  VCR: PaymentMethod.VCR,
-  CASH: PaymentMethod.Cash,
-  DD: PaymentMethod.DD,
-  BUBBLE: PaymentMethod.Bubble,
-  "3RD PARTY": PaymentMethod.ThirdParty,
+const PAY: Record<string, string> = {
+  VCR: "VCR",
+  CASH: "Cash",
+  DD: "DD",
+  BUBBLE: "Bubble",
+  "3RD PARTY": "ThirdParty",
 };
 
 const RESORT_NAMES: Record<string, string> = {
@@ -85,12 +78,15 @@ const MARKET_NAMES: Record<string, string> = {
   TUR: "Turkish",
   IT: "Italian",
   FR: "French",
+  EGY: "Egyptian",
 };
 const TO_NAMES: Record<string, string> = {
   PAX: "PAX",
   JMB: "Jumbo",
   MYW: "MyWay",
   TRV: "Travel",
+  "REHLA.COM": "Rehla.Com",
+  IND: "IND",
 };
 
 function toDate(iso: string | null): Date | null {
@@ -103,14 +99,81 @@ async function main() {
   const stopsales = load<{ hotel: string; roomType: string | null; qty: number; fromDate: string | null; toDate: string | null }[]>("stopsales.json");
   const bookings = load<Record<string, any>[]>("bookings.json");
 
+  // ---- Admin-editable lookup tables (6 new) ----
+  const bookingStatuses = [
+    { code: "Confirmed", label: "Confirmed", sortOrder: 0 },
+    { code: "Pending",   label: "Pending",   sortOrder: 1 },
+    { code: "Sent",      label: "Sent",       sortOrder: 2 },
+    { code: "CXL",       label: "CXL",        sortOrder: 3 },
+    { code: "NoShow",    label: "No Show",    sortOrder: 4 },
+    { code: "Bubble",    label: "Bubble",     sortOrder: 5 },
+    { code: "StopSale",  label: "Stop Sale",  sortOrder: 6 },
+  ];
+  for (const s of bookingStatuses) {
+    await prisma.bookingStatusLookup.upsert({ where: { code: s.code }, update: {}, create: s });
+  }
+
+  const roomCategories = [
+    { code: "DBL",    label: "DBL",      sortOrder: 0 },
+    { code: "SGL",    label: "SGL",      sortOrder: 1 },
+    { code: "TPL",    label: "TPL",      sortOrder: 2 },
+    { code: "Family", label: "Family",   sortOrder: 3 },
+    { code: "Suite",  label: "Suite",    sortOrder: 4 },
+    { code: "JSuite", label: "J. Suite", sortOrder: 5 },
+  ];
+  for (const r of roomCategories) {
+    await prisma.roomCategoryLookup.upsert({ where: { code: r.code }, update: {}, create: r });
+  }
+
+  const mealBases = [
+    { code: "AI",  label: "All Inclusive",    sortOrder: 0 },
+    { code: "BB",  label: "Bed & Breakfast",  sortOrder: 1 },
+    { code: "HB",  label: "Half Board",       sortOrder: 2 },
+    { code: "FB",  label: "Full Board",       sortOrder: 3 },
+    { code: "SAI", label: "Soft All Inc",     sortOrder: 4 },
+    { code: "BO",  label: "Bed Only",         sortOrder: 5 },
+  ];
+  for (const m of mealBases) {
+    await prisma.mealBasisLookup.upsert({ where: { code: m.code }, update: {}, create: m });
+  }
+
+  const payMethods = [
+    { code: "VCR",        label: "VCR",       sortOrder: 0 },
+    { code: "Cash",       label: "Cash",      sortOrder: 1 },
+    { code: "DD",         label: "DD",        sortOrder: 2 },
+    { code: "Bubble",     label: "Bubble",    sortOrder: 3 },
+    { code: "ThirdParty", label: "3rd Party", sortOrder: 4 },
+  ];
+  for (const p of payMethods) {
+    await prisma.paymentMethodLookup.upsert({ where: { code: p.code }, update: {}, create: p });
+  }
+
+  const currencies = [
+    { code: "USD", label: "US Dollar",   sortOrder: 0 },
+    { code: "EUR", label: "Euro",        sortOrder: 1 },
+    { code: "GBP", label: "Pound",       sortOrder: 2 },
+    { code: "EGP", label: "Egyptian £",  sortOrder: 3 },
+  ];
+  for (const c of currencies) {
+    await prisma.currencyLookup.upsert({ where: { code: c.code }, update: {}, create: c });
+  }
+
+  const spos = [
+    { code: "Yes", label: "Yes", sortOrder: 0 },
+    { code: "N/A", label: "N/A", sortOrder: 1 },
+  ];
+  for (const s of spos) {
+    await prisma.spoLookup.upsert({ where: { code: s.code }, update: {}, create: s });
+  }
+
   // ---- Users (demo accounts; password = "Passw0rd!") ----
   const pw = await hashPassword("Passw0rd!");
   const users: { email: string; name: string; role: Role }[] = [
-    { email: "admin@itour.app", name: "System Admin", role: Role.ADMIN },
-    { email: "manager@itour.app", name: "Reservations Manager", role: Role.MANAGER },
-    { email: "agent@itour.app", name: "Reservations Agent", role: Role.AGENT },
-    { email: "accountant@itour.app", name: "Accountant", role: Role.ACCOUNTANT },
-    { email: "viewer@itour.app", name: "Viewer", role: Role.VIEWER },
+    { email: "admin@itour.app",      name: "System Admin",          role: Role.ADMIN },
+    { email: "manager@itour.app",    name: "Reservations Manager",  role: Role.MANAGER },
+    { email: "agent@itour.app",      name: "Reservations Agent",    role: Role.AGENT },
+    { email: "accountant@itour.app", name: "Accountant",            role: Role.ACCOUNTANT },
+    { email: "viewer@itour.app",     name: "Viewer",                role: Role.VIEWER },
   ];
   for (const u of users) {
     await prisma.user.upsert({
@@ -130,8 +193,9 @@ async function main() {
   }
   const resortByCode = new Map((await prisma.resort.findMany()).map((r) => [r.code, r.id]));
 
-  // ---- Markets ----
-  for (const code of lookups.market) {
+  // ---- Markets (include EGY) ----
+  const allMarketCodes = [...new Set([...lookups.market, "EGY"])];
+  for (const code of allMarketCodes) {
     await prisma.market.upsert({
       where: { code }, update: {},
       create: { code, name: MARKET_NAMES[code] ?? code },
@@ -139,8 +203,9 @@ async function main() {
   }
   const marketByCode = new Map((await prisma.market.findMany()).map((m) => [m.code, m.id]));
 
-  // ---- Tour Operators ----
-  for (const code of lookups.tourOperator) {
+  // ---- Tour Operators (include Rehla.Com, IND) ----
+  const allToCodes = [...new Set([...lookups.tourOperator, "REHLA.COM", "IND"])];
+  for (const code of allToCodes) {
     await prisma.tourOperator.upsert({
       where: { code }, update: {},
       create: { code, name: TO_NAMES[code] ?? code },
@@ -165,7 +230,6 @@ async function main() {
     }
   }
 
-  // Fuzzy hotel index (suffix-stripped, normalized)
   const allHotels = await prisma.hotel.findMany();
   const hotelByStripped = new Map<string, string>();
   const hotelByExact = new Map<string, string>();
@@ -176,7 +240,6 @@ async function main() {
   async function resolveOrCreateHotel(name: string): Promise<string> {
     const found = hotelByExact.get(norm(name)) ?? hotelByStripped.get(stripSuffix(name));
     if (found) return found;
-    // Create-on-miss so no booking is dropped; flag via console for manual merge.
     const code = suffixCode(name);
     const resortId = code && resortByCode.has(code) ? resortByCode.get(code)! : null;
     const clean = (name ?? "").trim() || "UNKNOWN HOTEL";
@@ -187,14 +250,12 @@ async function main() {
     return created.id;
   }
 
-  // Room-type index per hotel
   const rtRows = await prisma.hotelRoomType.findMany();
-  const rtIndex = new Map<string, string>(); // `${hotelId}|${NORMNAME}` -> rtId
+  const rtIndex = new Map<string, string>();
   for (const rt of rtRows) rtIndex.set(`${rt.hotelId}|${norm(rt.name)}`, rt.id);
   async function resolveRoomTypeId(hotelId: string, name: string | null): Promise<string> {
     const key = `${hotelId}|${norm(name)}`;
     if (name && rtIndex.has(key)) return rtIndex.get(key)!;
-    // Create-on-miss so no booking is dropped (alloc 0).
     const created = await prisma.hotelRoomType.create({
       data: { hotelId, name: (name ?? "UNSPECIFIED").trim() || "UNSPECIFIED", allocation: 0 },
     });
@@ -215,9 +276,8 @@ async function main() {
     const hotelId = await resolveOrCreateHotel(b.hotel);
 
     const resortCode = norm(b.resort);
-    const resortId = marketByCode.size && resortByCode.get(resortCode)
-      ? resortByCode.get(resortCode)!
-      : (await prisma.resort.upsert({ where: { code: resortCode || "UNK" }, update: {}, create: { code: resortCode || "UNK", name: resortCode || "Unknown" } })).id;
+    const resortId = resortByCode.get(resortCode)
+      ?? (await prisma.resort.upsert({ where: { code: resortCode || "UNK" }, update: {}, create: { code: resortCode || "UNK", name: resortCode || "Unknown" } })).id;
     if (resortCode && !resortByCode.has(resortCode)) resortByCode.set(resortCode, resortId);
 
     const toCode = norm(b.tourOperator) || "UNK";
@@ -233,29 +293,31 @@ async function main() {
     await prisma.booking.create({
       data: {
         bookingDate: toDate(b.bookingDate) ?? arr,
-        hotelStatus: STATUS[norm(b.hotelStatus)] ?? BookingStatus.Pending,
-        toStatus: STATUS[norm(b.toStatus)] ?? BookingStatus.Pending,
+        hotelStatus: STATUS[norm(b.hotelStatus)] ?? "Pending",
+        toStatus:    STATUS[norm(b.toStatus)]    ?? "Pending",
         tourOperatorId: toId,
         marketId: mId,
         toBookingRef: String(b.toBookingRef ?? "").trim() || "—",
         sejourRef: b.sejourRef ? String(b.sejourRef) : null,
+        fileNumber: b.fileNumber ? String(b.fileNumber) : null,
         resortId,
         hotelId,
         hotelRoomTypeId: rtId,
         arrivalDate: arr,
         departureDate: dep,
-        roomCategory: ROOMCAT[norm(b.roomCategory)] ?? RoomCategory.DBL,
+        roomCategory: ROOMCAT[norm(b.roomCategory)] ?? "DBL",
         numRooms: Number.isFinite(b.numRooms) ? Math.max(1, Math.trunc(b.numRooms)) : 1,
         adults: int(b.adults), children: int(b.children), infants: int(b.infants),
-        mealBasis: MEAL[norm(b.mealBasis)] ?? MealBasis.AI,
+        mealBasis: MEAL[norm(b.mealBasis)] ?? "AI",
         guestNames: b.guestNames ?? null,
         child1Age: int0(b.child1Age), child1Dob: toDate(b.child1Dob),
         child2Age: int0(b.child2Age), child2Dob: toDate(b.child2Dob),
-        costUsd: dec(b.costUsd), sellingUsd: dec(b.sellingUsd),
-        costEur: dec(b.costEur), sellingEur: dec(b.sellingEur),
-        paymentMethod: PAY[norm(b.paymentMethod)] ?? PaymentMethod.Cash,
+        bookingCurrency:  b.bookingCurrency ?? null,
+        costUsd: dec(b.costUsd), sellingUsd: dec(b.sellingUsd), calculationUsd: b.calculationUsd ?? null,
+        costEur: dec(b.costEur), sellingEur: dec(b.sellingEur), calculationEur: b.calculationEur ?? null,
+        costEgp: dec(b.costEgp), sellingEgp: dec(b.sellingEgp),
+        paymentMethod: PAY[norm(b.paymentMethod)] ?? "Cash",
         paymentOptionDate: toDate(b.paymentOptionDate),
-        accountingRemarks: b.accountingRemarks ?? null,
         visaHandling: dec(b.visaHandling),
         arrFlightNo: b.arrFlightNo ?? null, arrFlightTime: b.arrFlightTime ?? null,
         depFlightNo: b.depFlightNo ?? null, depFlightTime: b.depFlightTime ?? null,
@@ -263,6 +325,8 @@ async function main() {
         remarks: b.remarks ?? null,
         ebdPercent: dec(b.ebdPercent), ebdPaymentDate: toDate(b.ebdPaymentDate),
         guestNameRebooked: b.guestNameRebooked ?? null,
+        roomCatsJson: b.roomCatsJson ?? null,
+        internalRef: b.internalRef ?? null,
         createdById: admin?.id ?? null,
       },
     });

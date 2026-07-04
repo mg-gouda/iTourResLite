@@ -8,6 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Role is internal-only; not admin-editable, kept as enum.
 enum Role {
   ADMIN
   MANAGER
@@ -16,47 +17,54 @@ enum Role {
   VIEWER
 }
 
-enum BookingStatus {
-  Confirmed
-  CXL
-  Pending
-  Sent
-  NoShow   @map("No Show")
-  Bubble
-  StopSale @map("Stop Sale")
+// ---- Admin-editable lookup tables (all 9 via System Parameters) ----
+
+model BookingStatusLookup {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  label     String?
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
 }
 
-enum RoomCategory {
-  DBL
-  SGL
-  TPL
-  Family
-  Suite
-  JSuite @map("J. Suite")
+model RoomCategoryLookup {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  label     String?
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
 }
 
-enum MealBasis {
-  AI
-  BB
-  HB
-  FB
-  SAI
-  BO
+model MealBasisLookup {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  label     String?
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
 }
 
-enum PaymentMethod {
-  VCR
-  Cash
-  DD
-  Bubble
-  ThirdParty @map("3rd Party")
+model PaymentMethodLookup {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  label     String?
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
 }
 
-enum Currency {
-  USD
-  EUR
-  GBP
-  EGP
+model CurrencyLookup {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  label     String?
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+}
+
+model SpoLookup {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  label     String?
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
 }
 
 model User {
@@ -65,11 +73,30 @@ model User {
   passwordHash String
   name         String
   role         Role      @default(VIEWER)
-  active       Boolean   @default(true)
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  bookings     Booking[] @relation("CreatedBy")
+  active            Boolean   @default(true)
+  lastLoginAt       DateTime?
+  twoFactorSecret   String?
+  twoFactorEnabled  Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  bookings          Booking[]  @relation("CreatedBy")
+  auditLogs         AuditLog[]
+  userPermissions   UserPermission[]
+}
+
+model RolePermission {
+  role       Role
+  permission String
+  granted    Boolean
+  @@id([role, permission])
+}
+
+model UserPermission {
+  userId     String
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission String
+  granted    Boolean
+  @@id([userId, permission])
 }
 
 model TourOperator {
@@ -100,6 +127,7 @@ model Resort {
 model Hotel {
   id        String          @id @default(cuid())
   name      String          @unique
+  email     String?
   resortId  String?
   resort    Resort?         @relation(fields: [resortId], references: [id])
   active    Boolean         @default(true)
@@ -122,86 +150,126 @@ model HotelRoomType {
 }
 
 model Booking {
-  id             String        @id @default(cuid())
-  bookingDate    DateTime
-  hotelStatus    BookingStatus
-  toStatus       BookingStatus
-  tourOperatorId String
-  tourOperator   TourOperator  @relation(fields: [tourOperatorId], references: [id])
-  marketId       String
-  market         Market        @relation(fields: [marketId], references: [id])
-  toBookingRef   String
-  sejourRef      String?
-  resortId       String
-  resort         Resort        @relation(fields: [resortId], references: [id])
-  hotelId        String
-  hotel          Hotel         @relation(fields: [hotelId], references: [id])
-  hotelRoomTypeId String
-  hotelRoomType  HotelRoomType @relation(fields: [hotelRoomTypeId], references: [id])
-  arrivalDate    DateTime
-  departureDate  DateTime
-  // nights derived = departureDate - arrivalDate
-  roomCategory   RoomCategory
-  numRooms       Int
-  adults         Int           @default(0)
-  children       Int           @default(0)
-  infants        Int           @default(0)
-  mealBasis      MealBasis
-  guestNames     String?
-  child1Age      Int?
-  child1Dob      DateTime?
-  child2Age      Int?
-  child2Dob      DateTime?
-  costUsd        Decimal       @default(0) @db.Decimal(12, 2)
-  sellingUsd     Decimal       @default(0) @db.Decimal(12, 2)
+  id               String        @id @default(cuid())
+  internalRef      String?       @unique  // 7-digit auto-generated on create
+  bookingDate      DateTime
+  hotelStatus      String        // BookingStatusLookup.code
+  toStatus         String        // BookingStatusLookup.code
+  tourOperatorId   String
+  tourOperator     TourOperator  @relation(fields: [tourOperatorId], references: [id])
+  marketId         String
+  market           Market        @relation(fields: [marketId], references: [id])
+  toBookingRef     String
+  sejourRef        String?
+  fileNumber       String?       // Local Market file ref e.g. FT-1001-01
+  resortId         String
+  resort           Resort        @relation(fields: [resortId], references: [id])
+  hotelId          String
+  hotel            Hotel         @relation(fields: [hotelId], references: [id])
+  hotelRoomTypeId  String
+  hotelRoomType    HotelRoomType @relation(fields: [hotelRoomTypeId], references: [id])
+  arrivalDate      DateTime
+  departureDate    DateTime
+  roomCategory     String        // RoomCategoryLookup.code
+  numRooms         Int
+  adults           Int           @default(0)
+  children         Int           @default(0)
+  infants          Int           @default(0)
+  mealBasis        String        // MealBasisLookup.code
+  guestNames       String?       // legacy plain text; replaced by GuestName rows
+  child1Age        Int?
+  child1Dob        DateTime?
+  child2Age        Int?
+  child2Dob        DateTime?
+  infantAge        Int?
+  infantDob        DateTime?
+  bookingCurrency  String?       // primary currency: USD | EUR | EGP | GBP
+  guestNameList    GuestName[]
+  costUsd          Decimal       @default(0) @db.Decimal(12, 2)
+  sellingUsd       Decimal       @default(0) @db.Decimal(12, 2)
+  calculationUsd   String?
   // plUsd derived = sellingUsd - costUsd
-  costEur        Decimal       @default(0) @db.Decimal(12, 2)
-  sellingEur     Decimal       @default(0) @db.Decimal(12, 2)
+  costEur          Decimal       @default(0) @db.Decimal(12, 2)
+  sellingEur       Decimal       @default(0) @db.Decimal(12, 2)
+  calculationEur   String?
   // plEur derived = (sellingEur - costEur) + visaHandling
-  paymentMethod  PaymentMethod
+  costEgp          Decimal       @default(0) @db.Decimal(12, 2)
+  sellingEgp       Decimal       @default(0) @db.Decimal(12, 2)
+  calculationEgp   String?
+  // plEgp derived = sellingEgp - costEgp
+  paymentMethod    String        // PaymentMethodLookup.code
   paymentOptionDate DateTime?
-  accountingRemarks String?
-  visaHandling   Decimal       @default(0) @db.Decimal(12, 2)
-  arrFlightNo    String?
-  arrFlightTime  String?
-  depFlightNo    String?
-  depFlightTime  String?
-  meetAssistVisa String?
-  remarks        String?
-  ebdPercent     Decimal       @default(0) @db.Decimal(6, 4) // fraction; 0.05 = 5%
-  ebdPaymentDate DateTime?
+  visaHandling     Decimal       @default(0) @db.Decimal(12, 2)
+  arrFlightNo      String?
+  arrFlightTime    String?
+  depFlightNo      String?
+  depFlightTime    String?
+  meetAssistVisa   String?
+  remarks          String?
+  ebdPercent       Decimal       @default(0) @db.Decimal(6, 4) // fraction; 0.05 = 5%
+  ebdPaymentDate   DateTime?
   // ebdAmountUsd derived = ebdPercent * costUsd
   // ebdAmountEur derived = ebdPercent * costEur
+  // ebdAmountEgp derived = ebdPercent * costEgp
   guestNameRebooked String?
-  createdById    String?
-  createdBy      User?         @relation("CreatedBy", fields: [createdById], references: [id])
-  deletedAt      DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  hotelRemarks     String?
+  hasSpo           Boolean   @default(false)
+  sejourSpoCode    String?
+  spoDate          DateTime?
+  roomCatsJson     String?   // JSON array of per-room categories when numRooms > 1
+  rateHistoryJson  String?   // JSON array of RateChangeEntry; appended when cost decreases
+  spoDocumentPath  String?
+  spoDocumentName  String?
+  createdById      String?
+  createdBy        User?         @relation("CreatedBy", fields: [createdById], references: [id])
+  deletedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@index([toBookingRef])
   @@index([hotelId, arrivalDate, departureDate])
   @@index([hotelRoomTypeId])
+  @@index([hotelStatus])
+}
+
+model GuestName {
+  id        String   @id @default(cuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  title     String   @default("Mr")
+  name      String
+  type      String   @default("HOTEL")  // HOTEL | REBOOK
+  room      Int      @default(1)
+  sortOrder Int      @default(0)
+  @@index([bookingId])
 }
 
 model StopSale {
-  id              String        @id @default(cuid())
+  id              String         @id @default(cuid())
   hotelId         String
-  hotel           Hotel         @relation(fields: [hotelId], references: [id])
+  hotel           Hotel          @relation(fields: [hotelId], references: [id])
   hotelRoomTypeId String?
   hotelRoomType   HotelRoomType? @relation(fields: [hotelRoomTypeId], references: [id])
   qty             Int
   fromDate        DateTime
   toDate          DateTime
-  createdAt       DateTime      @default(now())
+  createdAt       DateTime       @default(now())
 
   @@index([hotelId, fromDate, toDate])
+}
+
+// Key-value store for app-wide settings (e.g. companyName)
+model SystemConfig {
+  key       String @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  action    String // CREATE | UPDATE | DELETE
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String   // CREATE | UPDATE | DELETE
   entity    String
   entityId  String
   before    Json?
@@ -210,4 +278,5 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([userId])
+  @@index([createdAt])
 }

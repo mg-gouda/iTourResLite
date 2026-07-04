@@ -10,6 +10,10 @@ import { StopSalesModule } from "./modules/stop-sales/stop-sales.module";
 import { MaterializationModule } from "./modules/materialization/materialization.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { UsersModule } from "./modules/users/users.module";
+import { ReportsModule } from "./modules/reports/reports.module";
+import { ProfileModule } from "./modules/profile/profile.module";
+import { LicenseModule } from "./modules/license/license.module";
+import { PermissionsModule } from "./modules/permissions/permissions.module";
 import { HealthController } from "./modules/health/health.controller";
 import { JwtAuthGuard } from "./common/jwt-auth.guard";
 import { RolesGuard } from "./common/roles.guard";
@@ -26,6 +30,10 @@ import { RolesGuard } from "./common/roles.guard";
     MaterializationModule,
     DashboardModule,
     UsersModule,
+    ReportsModule,
+    ProfileModule,
+    LicenseModule,
+    PermissionsModule,
   ],
   controllers: [HealthController],
   providers: [

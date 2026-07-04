@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { hashPassword, type UserCreateDto, type UserUpdateDto } from "@itour/shared";
+import { type UserCreateDto, type UserUpdateDto } from "@itour/shared";
+import { hashPassword } from "../../common/password";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const SAFE = { id: true, email: true, name: true, role: true, active: true, lastLoginAt: true, createdAt: true };

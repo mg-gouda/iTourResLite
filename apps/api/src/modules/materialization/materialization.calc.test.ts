@@ -12,19 +12,19 @@ describe("materialization computeCells (improved rules)", () => {
     expect(r.cells.map((c) => c.sold)).toEqual([2, 2, 0]);
   });
 
-  it("Avail = Alloc - Sold - SS (improved rule subtracts stop sale)", () => {
+  it("Avail = Alloc - Sold (SS shown separately, not subtracted)", () => {
     const r = computeCells(
       10,
       [{ arr: day("2026-01-01"), dep: day("2026-01-02"), rooms: 3 }],
       [{ from: day("2026-01-01"), to: day("2026-01-02"), qty: 2 }],
       days,
     );
-    expect(r.cells[0]).toMatchObject({ alloc: 10, sold: 3, ss: 2, avail: 5 });
+    expect(r.cells[0]).toMatchObject({ alloc: 10, sold: 3, ss: 2, avail: 7 });
   });
 
-  it("negative stop-sale qty = full stop (ss = allocation)", () => {
+  it("negative stop-sale qty = full stop (ss = allocation, avail = alloc - sold)", () => {
     const r = computeCells(8, [], [{ from: day("2026-01-01"), to: day("2026-01-02"), qty: -1 }], days);
-    expect(r.cells[0]).toMatchObject({ ss: 8, avail: 0 });
+    expect(r.cells[0]).toMatchObject({ ss: 8, avail: 8 });
   });
 
   it("Mat% = totalSold / totalAlloc * 100", () => {

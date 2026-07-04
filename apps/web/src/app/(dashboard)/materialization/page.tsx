@@ -12,7 +12,7 @@ import { API, get, qs } from "@/lib/api";
 import { fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { AsyncCombobox } from "@/components/ui/async-combobox";
-import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Card, CardContent } from "@/components/ui/card";
@@ -92,10 +92,10 @@ export default function MaterializationPage() {
               />
             </Field>
             <Field label="From">
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+              <DateInput value={from} onChange={setFrom} className="w-36" />
             </Field>
             <Field label="To">
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+              <DateInput value={to} onChange={setTo} className="w-36" />
             </Field>
             <Button type="submit" disabled={!hotelId || !from || !to}>
               <Search className="size-4" /> Load grid

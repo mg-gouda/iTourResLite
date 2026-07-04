@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, KeyRound, Power } from "lucide-react";
-import { ROLES, type Role } from "@itour/shared";
-import { get, post, patch, del, ApiError } from "@/lib/api";
+import { Plus, KeyRound, Power, ShieldCheck, RotateCcw, Check, X } from "lucide-react";
+import {
+  ROLES, fmtDate, type Role,
+  PERMISSION_GROUPS, PERMISSION_LABELS, DEFAULT_MATRIX,
+  type Permission,
+} from "@itour/shared";
+import { get, post, patch, put, del, ApiError } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -17,6 +21,7 @@ import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 interface UserRow {
   id: string;
@@ -36,6 +41,7 @@ export default function UsersPage() {
   const [resetFor, setResetFor] = useState<UserRow | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [permUser, setPermUser] = useState<UserRow | null>(null);
 
   async function doCreate() {
     setError(null);
@@ -56,7 +62,7 @@ export default function UsersPage() {
 
   async function toggleActive(u: UserRow) {
     if (u.active) {
-      await del(`/users/${u.id}`); // deactivate
+      await del(`/users/${u.id}`);
     } else {
       await patch(`/users/${u.id}`, { active: true });
     }
@@ -79,14 +85,14 @@ export default function UsersPage() {
     <div>
       <PageHeader
         title="Users"
-        description="Manage accounts, roles and access."
+        description="Manage accounts, roles, access and per-user permission overrides."
         actions={<Button size="sm" onClick={() => { setError(null); setCreateOpen(true); }}><Plus className="size-4" /> New user</Button>}
       />
 
       <Card>
         <CardContent className="p-0">
           {list.isLoading ? (
-            <TableSkeleton rows={5} cols={5} />
+            <TableSkeleton rows={5} cols={6} />
           ) : list.isError ? (
             <ErrorState error={list.error} onRetry={() => list.refetch()} />
           ) : !list.data || list.data.length === 0 ? (
@@ -106,12 +112,19 @@ export default function UsersPage() {
                         <Combobox options={enumOptions(ROLES)} value={u.role} onChange={(v) => changeRole(u, v as Role)} />
                       </div>
                     </TD>
-                    <TD className="text-muted-foreground">{u.lastLoginAt ? u.lastLoginAt.slice(0, 10) : "—"}</TD>
+                    <TD className="text-muted-foreground">{fmtDate(u.lastLoginAt)}</TD>
                     <TD>{u.active ? <Badge variant="success">Active</Badge> : <Badge variant="zinc">Inactive</Badge>}</TD>
                     <TD className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" aria-label="Reset password" onClick={() => { setError(null); setResetFor(u); }}><KeyRound className="size-4" /></Button>
-                        <Button variant="ghost" size="icon" aria-label="Toggle active" onClick={() => toggleActive(u)}><Power className={u.active ? "size-4 text-destructive" : "size-4 text-emerald-400"} /></Button>
+                        <Button variant="ghost" size="icon" aria-label="Per-user permissions" title="Manage permissions" onClick={() => { setError(null); setPermUser(u); }}>
+                          <ShieldCheck className="size-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" aria-label="Reset password" onClick={() => { setError(null); setResetFor(u); }}>
+                          <KeyRound className="size-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" aria-label="Toggle active" onClick={() => toggleActive(u)}>
+                          <Power className={u.active ? "size-4 text-destructive" : "size-4 text-emerald-400"} />
+                        </Button>
                       </div>
                     </TD>
                   </TR>
@@ -154,6 +167,184 @@ export default function UsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Per-user permission overrides */}
+      {permUser && (
+        <UserPermDialog user={permUser} onClose={() => setPermUser(null)} />
+      )}
     </div>
+  );
+}
+
+function UserPermDialog({ user, onClose }: { user: UserRow; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [saving, setSaving] = useState(false);
+
+  const overridesQ = useQuery({
+    queryKey: ["user-perms", user.id],
+    queryFn: () => get<{ permission: string; granted: boolean }[]>(`/permissions/user/${user.id}`),
+    staleTime: 0,
+  });
+
+  const overrideMap = useMemo(() => {
+    const m = new Map<string, boolean>();
+    for (const o of overridesQ.data ?? []) m.set(o.permission, o.granted);
+    return m;
+  }, [overridesQ.data]);
+
+  async function toggle(perm: Permission) {
+    if (user.role === "ADMIN") return;
+    const hasOverride = overrideMap.has(perm);
+    const defaultVal = DEFAULT_MATRIX[user.role][perm];
+    const currentEffective = hasOverride ? overrideMap.get(perm)! : defaultVal;
+
+    setSaving(true);
+    try {
+      if (hasOverride && currentEffective === defaultVal) {
+        // override matches default → flip to opposite
+        await put(`/permissions/user/${user.id}`, { permission: perm, granted: !currentEffective });
+      } else if (hasOverride) {
+        // remove override (revert to role default)
+        await put(`/permissions/user/${user.id}`, { permission: perm, granted: null });
+      } else {
+        // set override to opposite of default
+        await put(`/permissions/user/${user.id}`, { permission: perm, granted: !currentEffective });
+      }
+    } finally {
+      setSaving(false);
+      qc.invalidateQueries({ queryKey: ["user-perms", user.id] });
+      qc.invalidateQueries({ queryKey: ["permissions-me"] });
+    }
+  }
+
+  async function resetAll() {
+    setSaving(true);
+    try {
+      await del(`/permissions/user/${user.id}`);
+    } finally {
+      setSaving(false);
+      qc.invalidateQueries({ queryKey: ["user-perms", user.id] });
+      qc.invalidateQueries({ queryKey: ["permissions-me"] });
+    }
+  }
+
+  const overrideCount = overrideMap.size;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShieldCheck className="size-4 text-primary" />
+            Permissions — {user.name}
+          </DialogTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Role baseline: <span className="font-semibold">{user.role}</span>
+            {overrideCount > 0 && (
+              <span className="ml-2 text-amber-500 font-medium">· {overrideCount} override{overrideCount !== 1 ? "s" : ""}</span>
+            )}
+          </p>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          {user.role === "ADMIN" ? (
+            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
+              Admin role has full access to all permissions. Individual overrides are not applicable.
+            </div>
+          ) : (
+            PERMISSION_GROUPS.map((group) => (
+              <div key={group.label}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 mb-2 px-1">
+                  {group.label}
+                </p>
+                <div className="rounded-lg border border-border overflow-hidden">
+                  {group.permissions.map((perm, i) => {
+                    const hasOverride = overrideMap.has(perm);
+                    const defaultVal = DEFAULT_MATRIX[user.role][perm];
+                    const effective = hasOverride ? overrideMap.get(perm)! : defaultVal;
+
+                    return (
+                      <div
+                        key={perm}
+                        className={cn(
+                          "flex items-center justify-between px-4 py-2.5 transition-colors",
+                          i > 0 && "border-t border-border/50",
+                          i % 2 === 0 ? "bg-background" : "bg-muted/10",
+                        )}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-foreground">{PERMISSION_LABELS[perm]}</p>
+                          <p className="text-[10px] font-mono text-muted-foreground/50">{perm}</p>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          {/* Default indicator */}
+                          <span className={cn(
+                            "text-[10px] font-medium",
+                            defaultVal ? "text-emerald-500/70" : "text-muted-foreground/50",
+                          )}>
+                            default: {defaultVal ? "granted" : "denied"}
+                          </span>
+
+                          {/* Override badge */}
+                          {hasOverride && (
+                            <span className={cn(
+                              "text-[10px] font-semibold px-1.5 py-0.5 rounded border",
+                              effective
+                                ? "bg-amber-500/15 border-amber-500/40 text-amber-500"
+                                : "bg-rose-500/15 border-rose-500/40 text-rose-500",
+                            )}>
+                              override
+                            </span>
+                          )}
+
+                          {/* Toggle button */}
+                          <button
+                            onClick={() => toggle(perm)}
+                            disabled={saving || overridesQ.isLoading}
+                            className={cn(
+                              "inline-flex items-center justify-center rounded-full w-8 h-8 border transition-all",
+                              "hover:scale-110 hover:shadow-md",
+                              effective
+                                ? hasOverride
+                                  ? "bg-amber-500/20 border-amber-500/60 text-amber-500"
+                                  : "bg-emerald-500/15 border-emerald-500/40 text-emerald-500"
+                                : hasOverride
+                                  ? "bg-rose-500/20 border-rose-500/60 text-rose-500"
+                                  : "bg-muted/30 border-border text-muted-foreground/40",
+                            )}
+                            title={
+                              hasOverride
+                                ? `Override: ${effective ? "granted" : "denied"} — click to cycle`
+                                : `Default ${effective ? "granted" : "denied"} — click to override`
+                            }
+                          >
+                            {effective
+                              ? <Check className="size-3.5" />
+                              : <X className="size-3.5" />
+                            }
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <DialogFooter className="border-t border-border pt-3 mt-2">
+          {overrideCount > 0 && user.role !== "ADMIN" && (
+            <Button variant="outline" size="sm" onClick={resetAll} disabled={saving}>
+              <RotateCcw className="size-3.5 mr-1" /> Reset all overrides
+            </Button>
+          )}
+          <DialogClose asChild>
+            <Button size="sm">Done</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

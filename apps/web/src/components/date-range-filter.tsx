@@ -1,7 +1,7 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateInput } from "@/components/ui/date-input";
 
 export interface DateRange {
   from: string;
@@ -21,22 +21,18 @@ export function DateRangeFilter({
     <div className={"flex flex-wrap items-end gap-3 " + (className ?? "")}>
       <div className="flex flex-col gap-1">
         <Label htmlFor="from">From</Label>
-        <Input
-          id="from"
-          type="date"
+        <DateInput
           value={value.from}
-          onChange={(e) => onChange({ ...value, from: e.target.value })}
-          className="w-40"
+          onChange={(v) => onChange({ ...value, from: v })}
+          className="w-36"
         />
       </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="to">To</Label>
-        <Input
-          id="to"
-          type="date"
+        <DateInput
           value={value.to}
-          onChange={(e) => onChange({ ...value, to: e.target.value })}
-          className="w-40"
+          onChange={(v) => onChange({ ...value, to: v })}
+          className="w-36"
         />
       </div>
     </div>

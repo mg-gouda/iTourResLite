@@ -16,7 +16,9 @@ export function hasRole(role: Role, min: Role): boolean {
 
 /** Fields the ACCOUNTANT may edit on a booking (everything else is rejected). */
 export const ACCOUNTANT_EDITABLE_FIELDS = [
-  "costUsd", "sellingUsd", "costEur", "sellingEur",
+  "costUsd", "sellingUsd", "calculationUsd",
+  "costEur", "sellingEur", "calculationEur",
+  "costEgp", "sellingEgp", "calculationEgp",
   "paymentMethod", "paymentOptionDate", "visaHandling", "accountingRemarks",
   "ebdPercent", "ebdPaymentDate",
 ] as const;

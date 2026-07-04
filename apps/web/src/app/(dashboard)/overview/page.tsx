@@ -6,11 +6,10 @@ import { BookOpen, BedDouble, Moon, Euro, DollarSign, Percent } from "lucide-rea
 import {
   formatMoney,
   formatPercent,
-  STATUS_LABEL,
   type DashboardOverview,
-  type BookingStatus,
 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
+import { useLookups } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { KpiCard } from "@/components/kpi-card";
 import { DateRangeFilter, type DateRange } from "@/components/date-range-filter";
@@ -22,6 +21,10 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 
 export default function OverviewPage() {
   const [range, setRange] = useState<DateRange>({ from: "", to: "" });
+  const lookups = useLookups();
+  const statusLabelMap = Object.fromEntries(
+    (lookups.data?.bookingStatuses ?? []).map((s) => [s.value, s.label])
+  );
 
   const query = useQuery({
     queryKey: ["overview", range],
@@ -47,13 +50,13 @@ export default function OverviewPage() {
       ) : query.isError ? (
         <Card><ErrorState error={query.error} onRetry={() => query.refetch()} /></Card>
       ) : (
-        <Body data={query.data!} />
+        <Body data={query.data!} statusLabelMap={statusLabelMap} />
       )}
     </div>
   );
 }
 
-function Body({ data }: { data: DashboardOverview }) {
+function Body({ data, statusLabelMap }: { data: DashboardOverview; statusLabelMap: Record<string, string> }) {
   const total = data.byStatus.reduce((s, r) => s + r.count, 0);
   return (
     <div className="space-y-5">
@@ -90,7 +93,7 @@ function Body({ data }: { data: DashboardOverview }) {
                   <TR key={row.status}>
                     <TD>
                       <Badge variant={statusVariant(row.status)}>
-                        {STATUS_LABEL[row.status as BookingStatus] ?? row.status}
+                        {statusLabelMap[row.status] ?? row.status}
                       </Badge>
                     </TD>
                     <TD className="text-right tabular-nums">{row.count.toLocaleString()}</TD>

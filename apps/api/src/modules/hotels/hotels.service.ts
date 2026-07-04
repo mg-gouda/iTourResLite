@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { HotelWriteDto, RoomTypeWriteDto } from "@itour/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -39,6 +39,9 @@ export class HotelsService {
   }
 
   async remove(id: string) {
+    const bookingCount = await this.prisma.booking.count({ where: { hotelId: id } });
+    if (bookingCount > 0)
+      throw new BadRequestException(`Cannot delete: hotel has ${bookingCount} booking(s). Archive it instead.`);
     await this.prisma.hotel.delete({ where: { id } });
     return { ok: true };
   }

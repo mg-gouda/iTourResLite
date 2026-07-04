@@ -26,7 +26,7 @@ export function computeCells(
       }
     }
     const ss = fullStop ? allocation : ssPos;
-    const avail = allocation - sold - ss; // improved rule: subtract SS too
+    const avail = allocation - sold; // Avail = Alloc − Sold; SS shown separately
     cells.push({ date: new Date(t).toISOString().slice(0, 10), alloc: allocation, sold, ss, avail });
     totalAlloc += allocation; totalSold += sold; totalSS += ss;
   }

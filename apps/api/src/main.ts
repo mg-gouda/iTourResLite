@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import "dotenv/config";
 import { NestFactory } from "@nestjs/core";
 import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
@@ -6,6 +7,8 @@ import { HttpErrorFilter } from "./common/http-error.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: true });
+  app.use(require("express").json({ limit: "5mb" }));
+  app.use(require("express").urlencoded({ limit: "5mb", extended: true }));
   app.setGlobalPrefix("api/v1");
   app.use(cookieParser());
   app.enableCors({

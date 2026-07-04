@@ -1,35 +1,4 @@
 {
-  "mealBasis": [
-    "AI",
-    "BB",
-    "HB",
-    "FB",
-    "SAI",
-    "BO"
-  ],
-  "bookingStatus": [
-    "Confirmed",
-    "CXL",
-    "Pending",
-    "Sent",
-    "No Show",
-    "Bubble",
-    "Stop Sale"
-  ],
-  "tourOperator": [
-    "PAX",
-    "JMB",
-    "MYW",
-    "TRV"
-  ],
-  "market": [
-    "WE",
-    "EE",
-    "UK",
-    "TUR",
-    "IT",
-    "FR"
-  ],
   "resort": [
     "SSH",
     "HRG",
@@ -42,31 +11,28 @@
     "SMB",
     "SAH",
     "DHB",
-    "NWB"
+    "NWB",
+    "UNK",
+    "MAKADI",
+    "Makadi"
   ],
-  "roomCategory": [
-    "DBL",
-    "SGL",
-    "TPL",
-    "Family",
-    "Suite",
-    "J. Suite"
+  "market": [
+    "WE",
+    "EE",
+    "UK",
+    "TUR",
+    "IT",
+    "FR",
+    "EGY",
+    "TURKEY"
   ],
-  "paymentMethod": [
-    "VCR",
-    "Cash",
-    "DD",
-    "Bubble",
-    "3rd Party"
-  ],
-  "currency": [
-    "USD",
-    "EUR",
-    "GBP",
-    "EGP"
-  ],
-  "spo": [
-    "Yes",
-    "N/A"
+  "tourOperator": [
+    "PAX",
+    "JMB",
+    "MYW",
+    "TRV",
+    "REHLA.COM",
+    "IND",
+    "TRAVELYRIA"
   ]
 }

@@ -27,11 +27,17 @@ export const plEur = (
   visaHandling: number | string,
 ): number => round2(n(sellingEur) - n(costEur) + n(visaHandling));
 
+export const plEgp = (costEgp: number | string, sellingEgp: number | string): number =>
+  round2(n(sellingEgp) - n(costEgp));
+
 export const ebdAmountUsd = (ebdPercent: number | string, costUsd: number | string): number =>
   round2(n(ebdPercent) * n(costUsd));
 
 export const ebdAmountEur = (ebdPercent: number | string, costEur: number | string): number =>
   round2(n(ebdPercent) * n(costEur));
+
+export const ebdAmountEgp = (ebdPercent: number | string, costEgp: number | string): number =>
+  round2(n(ebdPercent) * n(costEgp));
 
 export function round2(x: number): number {
   return Math.round((x + Number.EPSILON) * 100) / 100;
@@ -41,8 +47,10 @@ export interface DerivedBookingFields {
   nights: number;
   plUsd: number;
   plEur: number;
+  plEgp: number;
   ebdAmountUsd: number;
   ebdAmountEur: number;
+  ebdAmountEgp: number;
 }
 
 export function deriveBooking(b: {
@@ -52,6 +60,8 @@ export function deriveBooking(b: {
   sellingUsd: number | string;
   costEur: number | string;
   sellingEur: number | string;
+  costEgp?: number | string;
+  sellingEgp?: number | string;
   visaHandling: number | string;
   ebdPercent: number | string;
 }): DerivedBookingFields {
@@ -59,7 +69,9 @@ export function deriveBooking(b: {
     nights: nights(b.arrivalDate, b.departureDate),
     plUsd: plUsd(b.costUsd, b.sellingUsd),
     plEur: plEur(b.costEur, b.sellingEur, b.visaHandling),
+    plEgp: plEgp(b.costEgp ?? 0, b.sellingEgp ?? 0),
     ebdAmountUsd: ebdAmountUsd(b.ebdPercent, b.costUsd),
     ebdAmountEur: ebdAmountEur(b.ebdPercent, b.costEur),
+    ebdAmountEgp: ebdAmountEgp(b.ebdPercent, b.costEgp ?? 0),
   };
 }

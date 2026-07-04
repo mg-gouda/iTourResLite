@@ -11,3 +11,11 @@ coverage/
 packages/db/generated/
 *.tsbuildinfo
 install.sh
+# Client data files — not for version control
+Docs/*.xls
+Docs/*.xlsx
+Docs/*.xlsm
+apps/api/uploads/
+# Temp scripts
+scripts/export-seed.js
+scripts/migrate-bookings.js

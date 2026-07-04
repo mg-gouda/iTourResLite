@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { get } from "@/lib/api";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -17,7 +19,18 @@ import {
   X,
   LogOut,
   Search,
-  Plane,
+  ClipboardList,
+  TrendingUp,
+  CreditCard,
+  Tag,
+  Car,
+  ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
+  Sun,
+  Moon,
+  UserCircle,
+  KeySquare,
 } from "lucide-react";
 import { hasRole, type Role } from "@itour/shared";
 import { useAuth } from "@/components/auth-provider";
@@ -38,14 +51,29 @@ const VIEWS: NavItem[] = [
   { href: "/overview", label: "Overview", icon: CalendarRange },
   { href: "/pl", label: "P&L", icon: LineChart },
   { href: "/breakdowns", label: "Breakdowns", icon: PieChart },
-  { href: "/materialization", label: "Materialization", icon: Layers },
 ];
 
 const MANAGE: NavItem[] = [
   { href: "/bookings", label: "Bookings", icon: BookOpen },
   { href: "/stop-sale", label: "Stop Sale", icon: Ban },
-  { href: "/system/parameters", label: "System Parameters", icon: SlidersHorizontal, adminOnly: true },
-  { href: "/users", label: "Users", icon: Users, adminOnly: true },
+  { href: "/materialization", label: "Materialization", icon: Layers },
+];
+
+const REPORTS: NavItem[] = [
+  { href: "/reports/hotel-arrivals",      label: "Hotel Arrivals",       icon: ClipboardList },
+  { href: "/reports/arrival-transfers",   label: "Arrival Transfers",    icon: Car },
+  { href: "/reports/departure-transfers", label: "Departure Transfers",  icon: Car },
+  { href: "/reports/booking-finance",     label: "Booking Finance",      icon: TrendingUp },
+  { href: "/reports/payment-options",     label: "Payment Options",      icon: CreditCard },
+  { href: "/reports/ebd-list",            label: "EBD List",             icon: Tag },
+];
+
+const SETTINGS: NavItem[] = [
+  { href: "/system/parameters",  label: "System Parameters", icon: SlidersHorizontal, adminOnly: true },
+  { href: "/system/permissions", label: "Permissions",       icon: ShieldCheck,        adminOnly: true },
+  { href: "/system/license",     label: "License",           icon: KeySquare,          adminOnly: true },
+  { href: "/system/audit",       label: "Audit Trail",       icon: ShieldCheck,        adminOnly: true },
+  { href: "/users",              label: "Users",             icon: Users,              adminOnly: true },
 ];
 
 function NavGroup({
@@ -54,39 +82,48 @@ function NavGroup({
   role,
   pathname,
   onNavigate,
+  collapsed,
 }: {
   title: string;
   items: NavItem[];
   role: Role;
   pathname: string;
   onNavigate: () => void;
+  collapsed: boolean;
 }) {
   const visible = items.filter((i) => !i.adminOnly || role === "ADMIN");
   if (visible.length === 0) return null;
+
   return (
-    <div className="px-2 py-1">
-      <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-        {title}
-      </p>
+    <div className={cn("py-1", collapsed ? "px-1" : "px-2")}>
+      {!collapsed && (
+        <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+          {title}
+        </p>
+      )}
+      {collapsed && <div className="pb-1 pt-3" />}
       <nav className="space-y-0.5">
         {visible.map((item) => {
-          const active =
-            pathname === item.href || pathname.startsWith(item.href + "/");
+          const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={onNavigate}
+              title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
+                "flex items-center rounded-md transition-colors",
+                collapsed
+                  ? "justify-center p-2.5"
+                  : "gap-2.5 px-2.5 py-2 text-sm",
                 active
                   ? "bg-primary/15 font-medium text-primary"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground",
               )}
             >
-              <Icon className="size-4 shrink-0" />
-              <span className="truncate">{item.label}</span>
+              <Icon className={cn("shrink-0", collapsed ? "size-5" : "size-4")} />
+              {!collapsed && <span className="truncate">{item.label}</span>}
             </Link>
           );
         })}
@@ -101,6 +138,37 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const sysConfig = useQuery({ queryKey: ["system-config"], queryFn: () => get<Record<string, string>>("/system-config"), staleTime: 5 * 60 * 1000 });
+  const companyName = sysConfig.data?.companyName ?? "";
+
+  // Restore persisted sidebar + theme state
+  useEffect(() => {
+    const c = localStorage.getItem("sidebar-collapsed");
+    if (c === "true") setCollapsed(true);
+    const t = localStorage.getItem("theme") as "dark" | "light" | null;
+    if (t) setTheme(t);
+  }, []);
+
+  // Apply theme class to <html>
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("dark", theme === "dark");
+    root.classList.toggle("light", theme === "light");
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  function toggleCollapsed() {
+    setCollapsed((v) => {
+      localStorage.setItem("sidebar-collapsed", String(!v));
+      return !v;
+    });
+  }
+
+  function toggleTheme() {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }
 
   // Guard: no user -> bounce to login.
   useEffect(() => {
@@ -116,32 +184,70 @@ export function AppShell({ children }: { children: ReactNode }) {
     const ref = search.trim();
     if (ref) {
       router.push(`/bookings?ref=${encodeURIComponent(ref)}`);
+      setSearch("");
       setMobileOpen(false);
     }
   }
 
+  const navProps = { role, pathname, onNavigate: () => setMobileOpen(false), collapsed: false };
+
   const sidebar = (
     <div className="flex h-full flex-col">
-      <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-        <div className="flex size-8 items-center justify-center rounded-md bg-primary/20 text-primary">
-          <Plane className="size-4" />
-        </div>
-        <span className="text-sm font-semibold">iTour</span>
+      {/* Brand header — same height as topbar */}
+      <div className={cn(
+        "flex h-14 shrink-0 items-center border-b border-border",
+        collapsed ? "justify-center px-2" : "gap-2 px-3",
+      )}>
+        {collapsed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={theme === "dark" ? "/favicon.svg" : "/favicon-color.svg"}
+            alt="iTour"
+            className="size-8 object-contain"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={theme === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
+            alt="iTour"
+            className="h-8 min-w-0 flex-1 object-contain"
+          />
+        )}
+        {/* Collapse toggle — desktop only */}
+        <button
+          onClick={toggleCollapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="hidden shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:flex"
+        >
+          {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+        </button>
       </div>
+
+      {/* Scrollable nav groups */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <NavGroup title="Views" items={VIEWS} role={role} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
-        <NavGroup title="Manage" items={MANAGE} role={role} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+        <NavGroup title="Views"   items={VIEWS}   {...navProps} collapsed={collapsed} />
+        <NavGroup title="Manage"  items={MANAGE}  {...navProps} collapsed={collapsed} />
+        <NavGroup title="Reports" items={REPORTS} {...navProps} collapsed={collapsed} />
       </div>
-      <div className="border-t border-border p-3 text-[11px] text-muted-foreground">
-        {hasRole(role, "AGENT") ? "Full access" : "Read access"}
-      </div>
+
+      {/* Settings — pinned bottom, admin only */}
+      {role === "ADMIN" && (
+        <div className="shrink-0 border-t border-border">
+          <NavGroup title="Settings" items={SETTINGS} {...navProps} collapsed={collapsed} />
+        </div>
+      )}
     </div>
   );
 
   return (
     <div className="flex min-h-screen bg-background">
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 border-r border-border bg-card md:block">
+      <aside
+        className={cn(
+          "sticky top-0 hidden h-screen shrink-0 border-r border-border bg-slate-200 dark:bg-card transition-[width] duration-200 ease-out md:block",
+          collapsed ? "w-14" : "w-60",
+        )}
+      >
         {sidebar}
       </aside>
 
@@ -152,15 +258,37 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute left-0 top-0 h-full w-64 border-r border-border bg-card shadow-xl animate-fade-in">
-            {sidebar}
+          <aside className="absolute left-0 top-0 h-full w-64 border-r border-border bg-slate-200 dark:bg-card shadow-xl animate-fade-in">
+            <div className="flex h-full flex-col">
+              <div className="flex h-14 items-center gap-3 border-b border-border px-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={theme === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
+                  alt="iTour"
+                  className="h-8 w-auto flex-1 object-contain object-left"
+                />
+                <button onClick={() => setMobileOpen(false)} className="shrink-0 p-1 text-muted-foreground">
+                  <X className="size-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto scrollbar-thin">
+                <NavGroup title="Views"   items={VIEWS}   role={role} pathname={pathname} onNavigate={() => setMobileOpen(false)} collapsed={false} />
+                <NavGroup title="Manage"  items={MANAGE}  role={role} pathname={pathname} onNavigate={() => setMobileOpen(false)} collapsed={false} />
+                <NavGroup title="Reports" items={REPORTS} role={role} pathname={pathname} onNavigate={() => setMobileOpen(false)} collapsed={false} />
+              </div>
+              {role === "ADMIN" && (
+                <div className="shrink-0 border-t border-border">
+                  <NavGroup title="Settings" items={SETTINGS} role={role} pathname={pathname} onNavigate={() => setMobileOpen(false)} collapsed={false} />
+                </div>
+              )}
+            </div>
           </aside>
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top bar — legacy slate-900 aesthetic */}
-        <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-[rgb(15,23,42)] px-3 sm:px-5">
+        {/* Top bar */}
+        <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-slate-100/95 dark:bg-card/95 px-3 backdrop-blur-sm sm:px-5">
           <Button
             variant="ghost"
             size="icon"
@@ -172,7 +300,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
 
           <span className="hidden text-sm font-semibold sm:block">
-            iTour Reservation App
+            {companyName ? `${companyName} | iTour Reservations LITE` : "iTour Reservations LITE"}
           </span>
 
           <form onSubmit={onSearch} className="relative ml-auto w-full max-w-xs">
@@ -180,17 +308,35 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search T/O Booking Ref…"
-              aria-label="Search by tour operator booking reference"
+              placeholder="Search Operator Reference…"
+              aria-label="Search by operator reference"
               className="pl-8"
             />
           </form>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1">
+            {/* Theme toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              onClick={toggleTheme}
+            >
+              {theme === "dark"
+                ? <Sun className="size-4" />
+                : <Moon className="size-4" />
+              }
+            </Button>
+
             <div className="hidden text-right sm:block">
               <p className="text-xs font-medium leading-tight">{user.name}</p>
             </div>
             <Badge variant={roleVariant(user.role)}>{user.role}</Badge>
+            <Link href="/profile" title="My Profile">
+              <Button variant="ghost" size="icon" aria-label="My profile">
+                <UserCircle className="size-4" />
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
@@ -203,12 +349,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
-      </div>
 
-      {/* close icon helper for a11y on mobile (rendered offscreen if needed) */}
-      <span className="sr-only">
-        <X />
-      </span>
+        <footer className="flex h-14 shrink-0 items-center justify-end gap-3 border-t border-border bg-slate-100/95 dark:bg-card/95 px-5 text-xs text-muted-foreground backdrop-blur-sm">
+          <span>iTour Reservations LITE</span>
+          <span className="text-border">|</span>
+          <span>Developed by{" "}
+            <a href="https://wa.me/+201002805139" target="_blank" rel="noopener noreferrer"
+              className="text-primary hover:underline">
+              Mohamed Gouda
+            </a>
+          </span>
+          <span className="text-border">|</span>
+          <span>v0.1.0</span>
+        </footer>
+      </div>
     </div>
   );
 }

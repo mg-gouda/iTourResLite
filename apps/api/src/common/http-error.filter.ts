@@ -18,8 +18,9 @@ export class HttpErrorFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const body = exception.getResponse();
       const message = typeof body === "string" ? body : (body as any).message ?? exception.message;
+      const details = typeof body === "object" ? (body as any).details ?? undefined : undefined;
       return res.status(status).json({
-        error: { code: codeFor(status), message: Array.isArray(message) ? message.join(", ") : message },
+        error: { code: codeFor(status), message: Array.isArray(message) ? message.join(", ") : message, details },
       });
     }
 

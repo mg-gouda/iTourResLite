@@ -21,4 +21,9 @@ export class DashboardController {
   breakdowns(@Query(new ZodValidationPipe(breakdownQuerySchema)) q: any) {
     return this.dash.breakdowns(q);
   }
+
+  @Get("rebooking")
+  rebooking() {
+    return this.dash.rebookingStats();
+  }
 }

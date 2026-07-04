@@ -3,28 +3,40 @@
     "name": "AMC ROYAL HOTEL & SPA",
     "roomTypes": [
       {
-        "name": "Standard Room",
-        "allocation": 4
-      },
-      {
-        "name": "Permium Pool View",
-        "allocation": 2
-      },
-      {
-        "name": "Permium Side Sea View",
+        "name": "02 Family Connected",
         "allocation": 1
       },
       {
-        "name": "Permium Sea View",
-        "allocation": 1
+        "name": "DOUBLE PREMIUM POOL VIEW",
+        "allocation": 0
       },
       {
         "name": "Family Pool View",
         "allocation": 1
       },
       {
-        "name": "02 Family Connected",
+        "name": "PREMIUM POOL VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "Permium Pool View",
+        "allocation": 2
+      },
+      {
+        "name": "Permium Sea View",
         "allocation": 1
+      },
+      {
+        "name": "Permium Side Sea View",
+        "allocation": 1
+      },
+      {
+        "name": "SINGLE STANDARD (1AD)",
+        "allocation": 0
+      },
+      {
+        "name": "Standard Room",
+        "allocation": 4
       }
     ]
   },
@@ -32,11 +44,11 @@
     "name": "AMPHORAS AQUA - ADULT ONLY",
     "roomTypes": [
       {
-        "name": "Standard Room",
+        "name": "Standard Pool View",
         "allocation": 2
       },
       {
-        "name": "Standard Pool View",
+        "name": "Standard Room",
         "allocation": 2
       }
     ]
@@ -45,11 +57,23 @@
     "name": "AMPHORAS BEACH",
     "roomTypes": [
       {
-        "name": "Superior Room",
-        "allocation": 2
+        "name": "2 SUPERIOR ROOMS",
+        "allocation": 0
+      },
+      {
+        "name": "3 SUPERIOR ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "Family chalet room",
+        "allocation": 0
       },
       {
         "name": "Superior Pool View Room",
+        "allocation": 2
+      },
+      {
+        "name": "Superior Room",
         "allocation": 2
       },
       {
@@ -57,11 +81,11 @@
         "allocation": 2
       },
       {
-        "name": "one bed room chalet",
+        "name": "Two-bedroom chalet",
         "allocation": 1
       },
       {
-        "name": "Two-bedroom chalet",
+        "name": "one bed room chalet",
         "allocation": 1
       }
     ]
@@ -70,11 +94,15 @@
     "name": "AMPHORAS BLU RESORT - ADULTS ONLY",
     "roomTypes": [
       {
-        "name": "Standard Room",
-        "allocation": 2
+        "name": "2 STANDARD ROOMS",
+        "allocation": 0
       },
       {
         "name": "Standard Pool View Room",
+        "allocation": 2
+      },
+      {
+        "name": "Standard Room",
         "allocation": 2
       },
       {
@@ -91,16 +119,16 @@
     "name": "BARON PALACE SAHL HASHEESH",
     "roomTypes": [
       {
-        "name": "Deluxe room",
-        "allocation": 2
+        "name": "Club room",
+        "allocation": 1
       },
       {
         "name": "Deluxe Sea View",
         "allocation": 1
       },
       {
-        "name": "Club room",
-        "allocation": 1
+        "name": "Deluxe room",
+        "allocation": 2
       },
       {
         "name": "Family suite",
@@ -116,11 +144,7 @@
     "name": "BLEND CLUB AQUA RESORT",
     "roomTypes": [
       {
-        "name": "Superior Garden View",
-        "allocation": 0
-      },
-      {
-        "name": "Superior Pool Views",
+        "name": "DOUBLE/TWIN GARDEN VIEW.",
         "allocation": 0
       },
       {
@@ -130,6 +154,14 @@
       {
         "name": "Deluxe Pool Views",
         "allocation": 0
+      },
+      {
+        "name": "Superior Garden View",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Pool Views",
+        "allocation": 0
       }
     ]
   },
@@ -137,15 +169,11 @@
     "name": "BLEND EL PHISTONE RESORT",
     "roomTypes": [
       {
-        "name": "Superior GV",
+        "name": "2 SUPERIOR GARDEN VIEW",
         "allocation": 0
       },
       {
-        "name": "Superior PV",
-        "allocation": 0
-      },
-      {
-        "name": "Superior SV",
+        "name": "DOUBLE/TWIN SEA VIEW",
         "allocation": 0
       },
       {
@@ -175,12 +203,19 @@
       {
         "name": "Family Room",
         "allocation": 0
-      }
-    ]
-  },
-  {
-    "name": "CALIMERA BLEND PARADISE",
-    "roomTypes": [
+      },
+      {
+        "name": "Promo Room",
+        "allocation": 0
+      },
+      {
+        "name": "STANDARD ROOM GARDEN VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "SUPRIOR GARDEN VIEW",
+        "allocation": 0
+      },
       {
         "name": "Superior GV",
         "allocation": 0
@@ -191,6 +226,23 @@
       },
       {
         "name": "Superior SV",
+        "allocation": 0
+      }
+    ]
+  },
+  {
+    "name": "CALIMERA BLEND PARADISE",
+    "roomTypes": [
+      {
+        "name": "Calimera Family Suite",
+        "allocation": 0
+      },
+      {
+        "name": "Deluxe Family",
+        "allocation": 0
+      },
+      {
+        "name": "Deluxe Family Suite",
         "allocation": 0
       },
       {
@@ -206,19 +258,19 @@
         "allocation": 0
       },
       {
-        "name": "Deluxe Family",
-        "allocation": 0
-      },
-      {
         "name": "Superior Family Suite",
         "allocation": 0
       },
       {
-        "name": "Calimera Family Suite",
+        "name": "Superior GV",
         "allocation": 0
       },
       {
-        "name": "Deluxe Family Suite",
+        "name": "Superior PV",
+        "allocation": 0
+      },
+      {
+        "name": "Superior SV",
         "allocation": 0
       }
     ]
@@ -227,15 +279,15 @@
     "name": "CHARMILLION CLUB AQUA PARK",
     "roomTypes": [
       {
-        "name": "Standard Room",
-        "allocation": 1
-      },
-      {
         "name": "Family Room",
         "allocation": 1
       },
       {
         "name": "Family Suite",
+        "allocation": 1
+      },
+      {
+        "name": "Standard Room",
         "allocation": 1
       }
     ]
@@ -244,27 +296,11 @@
     "name": "CLEOPATRA LUXURY RESORT MAKADI BAY MAIN HOTEL",
     "roomTypes": [
       {
-        "name": "Standard Garden Room",
-        "allocation": 1
+        "name": "DOUBLE/TWIN STANDARD VIEW",
+        "allocation": 0
       },
       {
-        "name": "Premium Deluxe Room Garden view",
-        "allocation": 4
-      },
-      {
-        "name": "Standard Sea View Room",
-        "allocation": 1
-      },
-      {
-        "name": "Premium Deluxe Room Pool view",
-        "allocation": 4
-      },
-      {
-        "name": "Premium Deluxe Sea View Room",
-        "allocation": 1
-      },
-      {
-        "name": "Premium Deluxe Front Room",
+        "name": "Family Room",
         "allocation": 1
       },
       {
@@ -276,33 +312,88 @@
         "allocation": 0
       },
       {
-        "name": "Family Room",
+        "name": "Premium Deluxe Front Room",
+        "allocation": 1
+      },
+      {
+        "name": "Premium Deluxe Room  Garden view",
+        "allocation": 4
+      },
+      {
+        "name": "Premium Deluxe Room Pool view",
+        "allocation": 4
+      },
+      {
+        "name": "Premium Deluxe Sea View Room",
+        "allocation": 1
+      },
+      {
+        "name": "Standard Garden Room",
+        "allocation": 1
+      },
+      {
+        "name": "Standard Sea View Room",
         "allocation": 1
       }
     ]
   },
   {
     "name": "DESERT ROSE RESORT",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Superior Room Garden View",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "DOMINA CORAL BAY AQUA MARINE BEACH",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Handling Only",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "DOMINA CORAL BAY SULTAN",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Standard Room",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "DREAMS BEACH RESORT",
     "roomTypes": [
       {
-        "name": "Standard Garden View Room",
-        "allocation": 3
+        "name": "DOUBLE SUPERIOR SEA VIEW",
+        "allocation": 0
       },
       {
-        "name": "Superior Garden View",
-        "allocation": 1
+        "name": "Deluxe Elegant Direct Sea view",
+        "allocation": 0
+      },
+      {
+        "name": "Deluxe Elegant Garden View",
+        "allocation": 0
+      },
+      {
+        "name": "Elegant Direct Sea View",
+        "allocation": 0
+      },
+      {
+        "name": "Elegant Garden View",
+        "allocation": 0
+      },
+      {
+        "name": "Family Room ( 2 units )",
+        "allocation": 0
+      },
+      {
+        "name": "Standard Garden View Room",
+        "allocation": 3
       },
       {
         "name": "Superior Direct Pool or Sea side View",
@@ -313,30 +404,18 @@
         "allocation": 0
       },
       {
-        "name": "Elegant Garden View",
-        "allocation": 0
-      },
-      {
-        "name": "Elegant Direct Sea View",
-        "allocation": 0
-      },
-      {
-        "name": "Deluxe Elegant Garden View",
-        "allocation": 0
-      },
-      {
-        "name": "Deluxe Elegant Direct Sea view",
-        "allocation": 0
-      },
-      {
-        "name": "Family Room ( 2 units )",
-        "allocation": 0
+        "name": "Superior Garden View",
+        "allocation": 1
       }
     ]
   },
   {
     "name": "DREAMS VACATION RESORT",
     "roomTypes": [
+      {
+        "name": "Family Room (02 Units)",
+        "allocation": 0
+      },
       {
         "name": "Standard Garden View Room",
         "allocation": 3
@@ -350,7 +429,7 @@
         "allocation": 1
       },
       {
-        "name": "Family Room (02 Units)",
+        "name": "TRIPLE GARDEN VIEW",
         "allocation": 0
       }
     ]
@@ -359,16 +438,16 @@
     "name": "EAGLES DOWNTOWN ZAHABIA RESORT & AQUA PARK",
     "roomTypes": [
       {
-        "name": "STANDARD ROOM",
-        "allocation": 6
+        "name": "Family Two Bedrooms",
+        "allocation": 2
       },
       {
         "name": "Family one Bedroom",
         "allocation": 2
       },
       {
-        "name": "Family Two Bedrooms",
-        "allocation": 2
+        "name": "STANDARD ROOM",
+        "allocation": 6
       }
     ]
   },
@@ -376,16 +455,16 @@
     "name": "EAGLES PARADISE ABU SOMA RESORT",
     "roomTypes": [
       {
+        "name": "Family Room",
+        "allocation": 0
+      },
+      {
         "name": "Standard Garden View",
         "allocation": 5
       },
       {
         "name": "Standard Side Sea View or Sea View",
         "allocation": 1
-      },
-      {
-        "name": "Family Room",
-        "allocation": 0
       }
     ]
   },
@@ -393,20 +472,24 @@
     "name": "EMPIRE BEACH AQUA PARK",
     "roomTypes": [
       {
-        "name": "Standard Room",
-        "allocation": 10
+        "name": "Family Room",
+        "allocation": 1
       },
       {
         "name": "Pool View Room",
         "allocation": 2
       },
       {
+        "name": "SINGLE STANDARD ROOM",
+        "allocation": 0
+      },
+      {
         "name": "Sea View Room",
         "allocation": 2
       },
       {
-        "name": "Family Room",
-        "allocation": 1
+        "name": "Standard Room",
+        "allocation": 10
       }
     ]
   },
@@ -414,8 +497,12 @@
     "name": "EMPIRE HOTEL AQUA PARK",
     "roomTypes": [
       {
-        "name": "Standard Room",
-        "allocation": 11
+        "name": "Family Room",
+        "allocation": 2
+      },
+      {
+        "name": "Junior Suite",
+        "allocation": 1
       },
       {
         "name": "Pool View Room",
@@ -426,18 +513,19 @@
         "allocation": 3
       },
       {
-        "name": "Family Room",
-        "allocation": 2
-      },
-      {
-        "name": "Junior Suite",
-        "allocation": 1
+        "name": "Standard Room",
+        "allocation": 11
       }
     ]
   },
   {
     "name": "HANDLING ONLY",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Handling Only",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "IBEROTEL PALACE",
@@ -458,31 +546,37 @@
   },
   {
     "name": "IL MERCATO HOTEL & SPA",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "DOUBLE/TWIN STANDARD",
+        "allocation": 0
+      },
+      {
+        "name": "SINGLE STANDARD",
+        "allocation": 0
+      },
+      {
+        "name": "Standard Room",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Room",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "IVY CYRENE SHARM RESORT ADULTS ONLY+13",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Standard Room Garden View",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "JAZ AQUAVIVA RESORT",
     "roomTypes": [
-      {
-        "name": "Superior Room Garden View",
-        "allocation": 1
-      },
-      {
-        "name": "Superior Room Pool View & Bay View",
-        "allocation": 1
-      },
-      {
-        "name": "Superior Deluxe Garden View",
-        "allocation": 2
-      },
-      {
-        "name": "Superior Deluxe Pool View & Bay View",
-        "allocation": 2
-      },
       {
         "name": "Family Room Garden View",
         "allocation": 3
@@ -494,12 +588,44 @@
       {
         "name": "Family Swim UP",
         "allocation": 1
+      },
+      {
+        "name": "Superior Deluxe Garden View",
+        "allocation": 2
+      },
+      {
+        "name": "Superior Deluxe Pool View & Bay View",
+        "allocation": 2
+      },
+      {
+        "name": "Superior Room Garden View",
+        "allocation": 1
+      },
+      {
+        "name": "Superior Room Pool View & Bay View",
+        "allocation": 1
       }
     ]
   },
   {
     "name": "JAZ ELITE CASA DEL MAR BEACH",
     "roomTypes": [
+      {
+        "name": "DOUBLE/TWIN SUPERIOR GARDEN",
+        "allocation": 0
+      },
+      {
+        "name": "Deluxe Room Pool View",
+        "allocation": 1
+      },
+      {
+        "name": "Family Suite",
+        "allocation": 1
+      },
+      {
+        "name": "SINGLE SUPERIOR POOL VIEW",
+        "allocation": 0
+      },
       {
         "name": "Superior Garden room",
         "allocation": 2
@@ -515,20 +641,16 @@
       {
         "name": "Superior TPL Room GV & PV",
         "allocation": 1
-      },
-      {
-        "name": "Deluxe Room Pool View",
-        "allocation": 1
-      },
-      {
-        "name": "Family Suite",
-        "allocation": 1
       }
     ]
   },
   {
     "name": "JAZ FANARA RESORT",
     "roomTypes": [
+      {
+        "name": "Deluxe Family Room GV",
+        "allocation": 1
+      },
       {
         "name": "Standard GV",
         "allocation": 1
@@ -540,27 +662,32 @@
       {
         "name": "Superior Room SV",
         "allocation": 1
-      },
-      {
-        "name": "Deluxe Family Room GV",
-        "allocation": 1
       }
     ]
   },
   {
     "name": "JAZ GRAND MARSA",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Handling Only",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "JAZ MAKADI OASIS RESORT",
     "roomTypes": [
       {
-        "name": "Superior Room Garden View",
-        "allocation": 5
+        "name": "DOUBLE SUPERIOR GARDEN VIEW",
+        "allocation": 0
       },
       {
-        "name": "Superior Room Pool View",
-        "allocation": 5
+        "name": "Family Deluxe Garden View",
+        "allocation": 2
+      },
+      {
+        "name": "SINGLE USE SUPERIOR GARDEN VIEW",
+        "allocation": 0
       },
       {
         "name": "Superior Family Garden View",
@@ -571,8 +698,12 @@
         "allocation": 10
       },
       {
-        "name": "Family Deluxe Garden View",
-        "allocation": 2
+        "name": "Superior Room Garden View",
+        "allocation": 5
+      },
+      {
+        "name": "Superior Room Pool View",
+        "allocation": 5
       }
     ]
   },
@@ -580,20 +711,8 @@
     "name": "JAZ MAKADI SARAYA RESORT",
     "roomTypes": [
       {
-        "name": "Superior Room Garden View",
-        "allocation": 1
-      },
-      {
-        "name": "Superior Room Pool View",
-        "allocation": 1
-      },
-      {
-        "name": "Superior Deluxe Room Garden View",
-        "allocation": 2
-      },
-      {
-        "name": "Family Room Pool View",
-        "allocation": 2
+        "name": "DBL Family Pool view",
+        "allocation": 0
       },
       {
         "name": "Family Deluxe Room Garden View",
@@ -602,6 +721,22 @@
       {
         "name": "Family Deluxe Room Pool View",
         "allocation": 2
+      },
+      {
+        "name": "Family Room Pool View",
+        "allocation": 2
+      },
+      {
+        "name": "Superior Deluxe Room Garden View",
+        "allocation": 2
+      },
+      {
+        "name": "Superior Room Garden View",
+        "allocation": 1
+      },
+      {
+        "name": "Superior Room Pool View",
+        "allocation": 1
       },
       {
         "name": "Two Bed room apartment GV",
@@ -615,38 +750,85 @@
   },
   {
     "name": "JAZ MIRABEL BEACH RESORT SSH",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Deluxe Garden",
+        "allocation": 0
+      },
+      {
+        "name": "Family deluxe room garden view",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Room Sea View",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "JAZ MIRABEL CLUB & PARK SSH",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Superior Pool View",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "KING TUT AQUA PARK BEACH RESORT",
     "roomTypes": [
       {
-        "name": "Standard Room",
-        "allocation": 3
+        "name": "DOUBLE/TWIN SEA VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "Family Room Supplement",
+        "allocation": 1
       },
       {
         "name": "Sea View Supplement",
         "allocation": 1
       },
       {
-        "name": "Family Room Supplement",
-        "allocation": 1
+        "name": "Standard Room",
+        "allocation": 3
       }
     ]
   },
   {
     "name": "LABRANDA ROYAL MAKADI",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "DOUBLE/TWIN SUPERIOR GARDEN VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "SINGLE SUPERIOR GARDEN VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Room Garden View",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "LE PACHA RESORT",
     "roomTypes": [
       {
+        "name": "DOUBLE SEA SIDE",
+        "allocation": 0
+      },
+      {
+        "name": "FAMILY ROOM",
+        "allocation": 0
+      },
+      {
         "name": "Promo Room",
+        "allocation": 0
+      },
+      {
+        "name": "SINGLE STANDARD ROOM",
         "allocation": 0
       },
       {
@@ -660,20 +842,30 @@
       {
         "name": "STANDARD ROOM SIDE SEA VIEW",
         "allocation": 0
-      },
-      {
-        "name": "FAMILY ROOM",
-        "allocation": 0
       }
     ]
   },
   {
     "name": "MALIKIA ABU DABAB RESORT",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "DOUBLE STAND ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "SINGLE STAND ROOM",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "MARRIOTT BEACH RESORT HURGHADA",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Sea View Room",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "MERAKI RESORT HRG ADULTS ONLY +16",
@@ -681,18 +873,6 @@
       {
         "name": "Double Trouble (GV-PSV-SV)",
         "allocation": 0
-      },
-      {
-        "name": "Triple Trouble (GV-PV)",
-        "allocation": 1
-      },
-      {
-        "name": "Triple Trouble (PSV)",
-        "allocation": 0
-      },
-      {
-        "name": "Triple Trouble (SV)",
-        "allocation": 1
       },
       {
         "name": "Gypster (GV)",
@@ -713,12 +893,28 @@
       {
         "name": "Merakilous (SV)",
         "allocation": 0
+      },
+      {
+        "name": "Triple Trouble (GV-PV)",
+        "allocation": 1
+      },
+      {
+        "name": "Triple Trouble (PSV)",
+        "allocation": 0
+      },
+      {
+        "name": "Triple Trouble (SV)",
+        "allocation": 1
       }
     ]
   },
   {
     "name": "MONTE CARLO SHARM",
     "roomTypes": [
+      {
+        "name": "Deluxe Beach Front",
+        "allocation": 5
+      },
       {
         "name": "Deluxe Garden",
         "allocation": 5
@@ -728,11 +924,7 @@
         "allocation": 5
       },
       {
-        "name": "Superior Sea View",
-        "allocation": 5
-      },
-      {
-        "name": "Deluxe Beach Front",
+        "name": "Honey Moon Room (Adults Only- Sea View)",
         "allocation": 5
       },
       {
@@ -740,22 +932,36 @@
         "allocation": 1
       },
       {
-        "name": "Honey Moon Room (Adults Only- Sea View)",
+        "name": "Superior Sea View",
         "allocation": 5
       }
     ]
   },
   {
     "name": "NOVOTEL SHARM EL SHEIKH PALM WING SSH",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "STANDARD TWIN ROOM",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "PALM ROYAL SOMA BAY",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Superior Pool View",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "PICKALBATROS ALF LEILA WA LEILA BY NEVERLAND",
     "roomTypes": [
+      {
+        "name": "Family 2 Bedrooms",
+        "allocation": 1
+      },
       {
         "name": "Standard Room GV",
         "allocation": 3
@@ -763,34 +969,35 @@
       {
         "name": "Standard Room PV",
         "allocation": 5
-      },
-      {
-        "name": "Family 2 Bedrooms",
-        "allocation": 1
       }
     ]
   },
   {
     "name": "PICKALBATROS AQUA PARK RESORT",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "STANDARD ROOM GARDEN VIEW",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "PICKALBATROS CITADEL RESORT",
     "roomTypes": [
       {
-        "name": "Standard Room SV",
-        "allocation": 5
-      },
-      {
         "name": "Deluxe Room SV",
         "allocation": 3
       },
       {
-        "name": "Superior Swim UP",
+        "name": "Family Room",
         "allocation": 1
       },
       {
-        "name": "Family Room",
+        "name": "Standard Room SV",
+        "allocation": 5
+      },
+      {
+        "name": "Superior Swim UP",
         "allocation": 1
       }
     ]
@@ -799,30 +1006,51 @@
     "name": "PICKALBATROS JUNGLE AQUA PARK BY NEVERLAND",
     "roomTypes": [
       {
-        "name": "Standard Room GV/PV",
-        "allocation": 4
+        "name": "DOUBLE STANDARD GARDEN/POOL VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "Family 2 Bedrooms PV",
+        "allocation": 1
       },
       {
         "name": "Family Bungalow Sliding PV",
         "allocation": 12
       },
       {
+        "name": "SINGLE STANDARD",
+        "allocation": 0
+      },
+      {
         "name": "Splash Room Aqua Park View",
         "allocation": 3
       },
       {
-        "name": "Family 2 Bedrooms PV",
-        "allocation": 1
+        "name": "Standard Room GV/PV",
+        "allocation": 4
       }
     ]
   },
   {
     "name": "PICKALBATROS LAGUNA BEACH EX LAGUNA VISTA BEACH",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "DOUBLE PROMO ROOM GARDEN VIEW",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "PICKALBATROS PALACE RESORT (HRG)",
     "roomTypes": [
+      {
+        "name": "DOUBLE/TWIN GARDEN VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "Promo Room",
+        "allocation": 1
+      },
       {
         "name": "Standard Room GV",
         "allocation": 2
@@ -840,42 +1068,75 @@
         "allocation": 3
       },
       {
-        "name": "Promo Room",
-        "allocation": 1
+        "name": "TRIPLE  GARDEN VIEW",
+        "allocation": 0
       }
     ]
   },
   {
     "name": "PICKALBATROS ROYAL MODERNA RESORT SSH",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "PROMO ROOM",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "PICKALBATROS WHITE BEACH RESORT (HRG)",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Deluxe Room Sea View",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "REEF OASIS BEACH RESORT (VERACLUB)",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Handling Only",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "REGENCY PLAZA AQUA PARK & SPA RESORT SSH",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Deluxe Room Pool View",
+        "allocation": 0
+      },
+      {
+        "name": "FAMILY ROOM (3AD+1CH)",
+        "allocation": 0
+      },
+      {
+        "name": "SINGLE DELUXE",
+        "allocation": 0
+      },
+      {
+        "name": "Standard Room",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "RENAISSANCE SHARM EL SHEIKH",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Premium Room Sea View",
+        "allocation": 0
+      },
+      {
+        "name": "Standard Room Garden View",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "REWAYA MAJESTIC RESORT",
     "roomTypes": [
-      {
-        "name": "Standard Room",
-        "allocation": 15
-      },
-      {
-        "name": "Standard Room Sea View",
-        "allocation": 7
-      },
       {
         "name": "Bungalow Room",
         "allocation": 1
@@ -887,39 +1148,83 @@
       {
         "name": "Junior Suite",
         "allocation": 2
+      },
+      {
+        "name": "Standard Room",
+        "allocation": 15
+      },
+      {
+        "name": "Standard Room Sea View",
+        "allocation": 7
       }
     ]
   },
   {
     "name": "RIXOS PREMIUM MAGAWISH SUITES & VILLAS (HRG)",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "GARDEN SUITE",
+        "allocation": 0
+      },
+      {
+        "name": "SUITE SINGLE",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "RIXOS PREMIUM SEAGATE SSH",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Family Room Aqua",
+        "allocation": 0
+      },
+      {
+        "name": "Premium Room Sea View",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Room Aqua",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "RIXOS RADAMIS",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "Family Blue Planet",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Room Blue Planet",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "RIXOS SHARM EL SHEIKH ADULT FRIENDLY+18",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "DOUBLE SUPERIOR",
+        "allocation": 0
+      },
+      {
+        "name": "Deluxe Room",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Room",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "ROYAL STAR BEACH RESORT (HRG)",
     "roomTypes": [
       {
-        "name": "Standard Room",
-        "allocation": 12
-      },
-      {
-        "name": "Side Sea View Room",
-        "allocation": 3
-      },
-      {
-        "name": "Sea View Room",
-        "allocation": 3
+        "name": "DOUBLE/TWIN STANDARD VIEW",
+        "allocation": 0
       },
       {
         "name": "Family Room",
@@ -928,30 +1233,51 @@
       {
         "name": "Junior Suite Sea View",
         "allocation": 1
+      },
+      {
+        "name": "Sea View Room",
+        "allocation": 3
+      },
+      {
+        "name": "Side Sea View Room",
+        "allocation": 3
+      },
+      {
+        "name": "Standard Room",
+        "allocation": 12
       }
     ]
   },
   {
     "name": "SEAGULL BEACH RESORT",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "FAMILY ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "SINGLE STANDARD ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "STANDARD TRIPLE",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "SENTIDO MAMLOUK PALACE RESORT (HRG)",
     "roomTypes": [
       {
-        "name": "Standard Room (GV)",
-        "allocation": 1
-      },
-      {
-        "name": "Standard Room (PV)",
-        "allocation": 1
-      },
-      {
-        "name": "Standard Room (PSV)",
+        "name": "DOUBLE POOL VIEW",
         "allocation": 0
       },
       {
-        "name": "Family Bunkbed (GV-PV)",
+        "name": "Executive Suite (SV)",
+        "allocation": 0
+      },
+      {
+        "name": "Family Bunkbed  (GV-PV)",
         "allocation": 1
       },
       {
@@ -967,41 +1293,64 @@
         "allocation": 0
       },
       {
-        "name": "Executive Suite (SV)",
+        "name": "Standard Room (GV)",
+        "allocation": 1
+      },
+      {
+        "name": "Standard Room (PSV)",
         "allocation": 0
+      },
+      {
+        "name": "Standard Room (PV)",
+        "allocation": 1
       }
     ]
   },
   {
     "name": "SERENITY ALMA HEIGHTS (X SERENITY FUN CITY)",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "DOUBLE/TWIN SUPERIOR (2AD+1CH)",
+        "allocation": 0
+      },
+      {
+        "name": "FAMILY ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "SUPERIOR ROOM",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "SERENITY ALPHA BEACH (X SERENITY MAKADI BEACH)",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "DOUBLE/TWIN SUPERIOR",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "SHONI BAY",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "2 DBL ROOMS STANDARD MOUNTAIN",
+        "allocation": 0
+      },
+      {
+        "name": "Handling Only",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "STEIGENBERGER ALCAZAR SSH",
     "roomTypes": [
       {
-        "name": "Superior Garden View Room",
-        "allocation": 1
-      },
-      {
-        "name": "Superior Pool View Room",
-        "allocation": 1
-      },
-      {
-        "name": "Superior Side Sea View Room",
-        "allocation": 1
-      },
-      {
-        "name": "Superior Swim-Up Room",
-        "allocation": 1
+        "name": "Deluxe Family Garden Room",
+        "allocation": 0
       },
       {
         "name": "Family Deluxe Garden View Room",
@@ -1018,6 +1367,22 @@
       {
         "name": "Family Deluxe Swim-UP Room",
         "allocation": 1
+      },
+      {
+        "name": "Superior  Pool View Room",
+        "allocation": 1
+      },
+      {
+        "name": "Superior  Side Sea View Room",
+        "allocation": 1
+      },
+      {
+        "name": "Superior Garden View Room",
+        "allocation": 1
+      },
+      {
+        "name": "Superior Swim-Up  Room",
+        "allocation": 1
       }
     ]
   },
@@ -1025,12 +1390,12 @@
     "name": "SUNNY DAYS EL PALACIO RESORT & SPA",
     "roomTypes": [
       {
-        "name": "Standard Room Lagoon / Pool",
-        "allocation": 7
+        "name": "2 POOL VIEW ROOMS",
+        "allocation": 0
       },
       {
-        "name": "Standard Room Sea view",
-        "allocation": 1
+        "name": "DOUBLE/TWIN POOL VIEW",
+        "allocation": 0
       },
       {
         "name": "Deluxe Room Lagoon / Pool view",
@@ -1043,6 +1408,26 @@
       {
         "name": "Elite Room",
         "allocation": 1
+      },
+      {
+        "name": "Pool  Lagoon View Room, Elite room",
+        "allocation": 0
+      },
+      {
+        "name": "Pool / Lagoon View Room",
+        "allocation": 0
+      },
+      {
+        "name": "SINGLE POOL VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "Standard Room Lagoon / Pool",
+        "allocation": 7
+      },
+      {
+        "name": "Standard Room Sea view",
+        "allocation": 1
       }
     ]
   },
@@ -1050,44 +1435,45 @@
     "name": "SUNNY DAYS PALMA DE MERRITE",
     "roomTypes": [
       {
+        "name": "Boho Room",
+        "allocation": 1
+      },
+      {
+        "name": "DOUBLE PREMIUM GARDEN VIEW",
+        "allocation": 0
+      },
+      {
         "name": "Premium Room – Garden view",
         "allocation": 2
       },
       {
         "name": "Premium Room – Pool / Sea view",
         "allocation": 1
-      },
-      {
-        "name": "Boho Room",
-        "allocation": 1
       }
     ]
   },
   {
     "name": "SUNRISE AQUA JOY RESORT",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "DOUBLE/TWIN SEA VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "Standard Room Back View",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Room Pool / Partial Sea Side",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "SUNRISE GARDEN BEACH RESORT",
     "roomTypes": [
       {
-        "name": "Superior Room (GV)",
-        "allocation": 1
-      },
-      {
-        "name": "Superior Room (PV)",
-        "allocation": 0
-      },
-      {
-        "name": "Superior Room (PSV)",
-        "allocation": 0
-      },
-      {
-        "name": "Deluxe Room (PV)",
-        "allocation": 1
-      },
-      {
-        "name": "Deluxe Room (PSV)",
+        "name": "DOUBLE SUPERIOR GARDEN VIEW",
         "allocation": 0
       },
       {
@@ -1095,7 +1481,27 @@
         "allocation": 0
       },
       {
+        "name": "Deluxe Room (PSV)",
+        "allocation": 0
+      },
+      {
+        "name": "Deluxe Room (PV)",
+        "allocation": 1
+      },
+      {
         "name": "Junior Suite (GV)",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Room (GV)",
+        "allocation": 1
+      },
+      {
+        "name": "Superior Room (PSV)",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Room (PV)",
         "allocation": 0
       }
     ]
@@ -1104,23 +1510,11 @@
     "name": "SUNRISE HOLIDAYS RESORT ADULTS ONLY +16",
     "roomTypes": [
       {
-        "name": "Standard Room Back View",
-        "allocation": 0
-      },
-      {
-        "name": "Standard Room (SV)",
-        "allocation": 1
-      },
-      {
-        "name": "Superior Room (SV)",
-        "allocation": 1
-      },
-      {
         "name": "Deluxe Room (SV)",
         "allocation": 0
       },
       {
-        "name": "Premium Room (SV)",
+        "name": "Executive Suite (SV)",
         "allocation": 0
       },
       {
@@ -1128,22 +1522,54 @@
         "allocation": 0
       },
       {
-        "name": "Premium Jacuzzi Suite (SV)",
-        "allocation": 0
-      },
-      {
         "name": "Master Suite (SV)",
         "allocation": 0
       },
       {
-        "name": "Executive Suite (SV)",
+        "name": "Premium Jacuzzi Suite (SV)",
         "allocation": 0
+      },
+      {
+        "name": "Premium Room (SV)",
+        "allocation": 0
+      },
+      {
+        "name": "SINGLE SUPERIOR SEA VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "Standard Room (SV)",
+        "allocation": 1
+      },
+      {
+        "name": "Standard Room Back View",
+        "allocation": 0
+      },
+      {
+        "name": "Superior Room (SV)",
+        "allocation": 1
       }
     ]
   },
   {
     "name": "SWISS INN RESORT (HRG)",
     "roomTypes": [
+      {
+        "name": "2 Single Premium Room Garden Side 2nd Line",
+        "allocation": 0
+      },
+      {
+        "name": "Diplomatic Suite",
+        "allocation": 0
+      },
+      {
+        "name": "Family Suite Garden Side (2nd line)",
+        "allocation": 0
+      },
+      {
+        "name": "Junior Suite Garden Side (2nd line)",
+        "allocation": 0
+      },
       {
         "name": "Premium Room",
         "allocation": 6
@@ -1155,43 +1581,28 @@
       {
         "name": "Premium Sea View",
         "allocation": 2
-      },
-      {
-        "name": "Junior Suite Garden Side (2nd line)",
-        "allocation": 0
-      },
-      {
-        "name": "Diplomatic Suite",
-        "allocation": 0
-      },
-      {
-        "name": "Family Suite Garden Side (2nd line)",
-        "allocation": 0
       }
     ]
   },
   {
     "name": "SWISSÔTEL SHARM EL SHEIKH",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "DELUXE ROOM AQUA",
+        "allocation": 0
+      },
+      {
+        "name": "DOUBLE/TWIN DELUXE ROOM AQUA",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "THE THREE CORNERS EQUINOX BEACH RESORT (RMF)",
     "roomTypes": [
       {
-        "name": "Comfort Room Garden View",
+        "name": "Comfort  Room Garden View",
         "allocation": 3
-      },
-      {
-        "name": "Comfort Sea View",
-        "allocation": 2
-      },
-      {
-        "name": "Premium Sea View Room",
-        "allocation": 0
-      },
-      {
-        "name": "Premium Plus Sea View",
-        "allocation": 0
       },
       {
         "name": "Comfort Plus Garden View",
@@ -1200,6 +1611,22 @@
       {
         "name": "Comfort Plus Sea View",
         "allocation": 0
+      },
+      {
+        "name": "Comfort Sea View",
+        "allocation": 2
+      },
+      {
+        "name": "DOUBLE COMFORT",
+        "allocation": 0
+      },
+      {
+        "name": "Premium Plus Sea View",
+        "allocation": 0
+      },
+      {
+        "name": "Premium Sea View Room",
+        "allocation": 0
       }
     ]
   },
@@ -1207,12 +1634,20 @@
     "name": "THE THREE CORNERS FAYROUZ PLAZA BEACH RESORT (RMF)",
     "roomTypes": [
       {
-        "name": "Premium Room",
-        "allocation": 4
+        "name": "FAMILY ROOM (Premium Grand Room)",
+        "allocation": 0
       },
       {
         "name": "Premium Grand Room",
         "allocation": 1
+      },
+      {
+        "name": "Premium Room",
+        "allocation": 4
+      },
+      {
+        "name": "TRIPLE PREMIUM ROOM",
+        "allocation": 0
       }
     ]
   },
@@ -1225,6 +1660,10 @@
       },
       {
         "name": "Premium Sea View / Marina View / Pool View / Lagoon view",
+        "allocation": 0
+      },
+      {
+        "name": "STANDARD GARDEN ROOM",
         "allocation": 0
       },
       {
@@ -1241,6 +1680,26 @@
     "name": "THE THREE CORNERS RIHANA RESORT",
     "roomTypes": [
       {
+        "name": "2 Premium Rooms",
+        "allocation": 0
+      },
+      {
+        "name": "Comfort Room",
+        "allocation": 2
+      },
+      {
+        "name": "DOUBLE COMFORT ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "FAMILY ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "Premium Family",
+        "allocation": 1
+      },
+      {
         "name": "Premium Room",
         "allocation": 1
       },
@@ -1249,15 +1708,11 @@
         "allocation": 1
       },
       {
-        "name": "Comfort Room",
-        "allocation": 2
-      },
-      {
-        "name": "Premium Family",
-        "allocation": 1
-      },
-      {
         "name": "Superior Plus",
+        "allocation": 0
+      },
+      {
+        "name": "TRIPLE PREMIUM ROOM",
         "allocation": 0
       }
     ]
@@ -1266,15 +1721,23 @@
     "name": "THE THREE CORNERS SEA BEACH RESORT (RMF)",
     "roomTypes": [
       {
-        "name": "Comfort Room",
-        "allocation": 3
-      },
-      {
         "name": "Comfort Family Room",
         "allocation": 2
       },
       {
         "name": "Comfort Grand Room",
+        "allocation": 0
+      },
+      {
+        "name": "Comfort Room",
+        "allocation": 3
+      },
+      {
+        "name": "QUADRUPLE (Comfort Family Room)",
+        "allocation": 0
+      },
+      {
+        "name": "STANDARD COMFORT ROOM",
         "allocation": 0
       }
     ]
@@ -1283,16 +1746,36 @@
     "name": "THE THREE CORNERS SUNNY BEACH RESORT HURGHADA",
     "roomTypes": [
       {
+        "name": "2 COMFORT Rooms",
+        "allocation": 0
+      },
+      {
+        "name": "Comfort Family",
+        "allocation": 1
+      },
+      {
         "name": "Comfort Room",
         "allocation": 3
+      },
+      {
+        "name": "DOBLE COMFORT",
+        "allocation": 0
+      },
+      {
+        "name": "DOUBLE COMFORT",
+        "allocation": 0
+      },
+      {
+        "name": "FAMILY ROOM",
+        "allocation": 0
       },
       {
         "name": "Premium",
         "allocation": 1
       },
       {
-        "name": "Comfort Family",
-        "allocation": 1
+        "name": "TRIPLE PREMIUM ROOM",
+        "allocation": 0
       }
     ]
   },
@@ -1308,6 +1791,14 @@
     "name": "TITANIC BEACH SPA & AQUA PARK",
     "roomTypes": [
       {
+        "name": "DOUBLE - PROMO ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "Family Room",
+        "allocation": 5
+      },
+      {
         "name": "Promo Room",
         "allocation": 5
       },
@@ -1316,12 +1807,12 @@
         "allocation": 5
       },
       {
-        "name": "Family Room",
-        "allocation": 5
-      },
-      {
         "name": "Swim Up",
         "allocation": 2
+      },
+      {
+        "name": "TRIPLE STANDARD VIEW",
+        "allocation": 0
       }
     ]
   },
@@ -1329,16 +1820,12 @@
     "name": "TITANIC PALACE RESORT & AQUA PARK",
     "roomTypes": [
       {
-        "name": "Promo Room",
-        "allocation": 2
-      },
-      {
-        "name": "Standard Room",
-        "allocation": 5
-      },
-      {
         "name": "Bungalow Room",
         "allocation": 2
+      },
+      {
+        "name": "DOUBLE - PROMO ROOM",
+        "allocation": 0
       },
       {
         "name": "Family Room",
@@ -1347,6 +1834,14 @@
       {
         "name": "Family Room Superior",
         "allocation": 2
+      },
+      {
+        "name": "Promo Room",
+        "allocation": 2
+      },
+      {
+        "name": "Standard Room",
+        "allocation": 5
       },
       {
         "name": "Swim Up",
@@ -1358,15 +1853,15 @@
     "name": "TITANIC RESORT & AQUA PARK",
     "roomTypes": [
       {
+        "name": "Family Room",
+        "allocation": 5
+      },
+      {
         "name": "Promo Room",
         "allocation": 5
       },
       {
         "name": "Standard Room",
-        "allocation": 5
-      },
-      {
-        "name": "Family Room",
         "allocation": 5
       }
     ]
@@ -1375,16 +1870,24 @@
     "name": "TITANIC ROYAL",
     "roomTypes": [
       {
+        "name": "2 STANDARD ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "Family Room",
+        "allocation": 3
+      },
+      {
+        "name": "GARDEN OR POOL VIEW",
+        "allocation": 0
+      },
+      {
         "name": "Promo Room",
         "allocation": 2
       },
       {
         "name": "Standard Room",
         "allocation": 5
-      },
-      {
-        "name": "Family Room",
-        "allocation": 3
       },
       {
         "name": "Swim Up",
@@ -1396,30 +1899,38 @@
     "name": "TRUE BEACH RESORT",
     "roomTypes": [
       {
-        "name": "Superior P.V/G.V",
-        "allocation": 3
-      },
-      {
-        "name": "Superior Side sea view",
-        "allocation": 5
-      },
-      {
-        "name": "Superior Sea view",
-        "allocation": 3
+        "name": "Family Suite",
+        "allocation": 1
       },
       {
         "name": "Family room",
         "allocation": 3
       },
       {
-        "name": "Family Suite",
-        "allocation": 1
+        "name": "Junior Suite +18",
+        "allocation": 0
+      },
+      {
+        "name": "Superior P.V/G.V",
+        "allocation": 3
+      },
+      {
+        "name": "Superior Sea view",
+        "allocation": 3
+      },
+      {
+        "name": "Superior Side sea view",
+        "allocation": 5
       }
     ]
   },
   {
     "name": "V HOTEL SHARM EL SHEIKH",
     "roomTypes": [
+      {
+        "name": "Family Bunkbed Room",
+        "allocation": 0
+      },
       {
         "name": "Premium GV",
         "allocation": 1
@@ -1440,11 +1951,32 @@
   },
   {
     "name": "WADI LAHMY RESORT",
-    "roomTypes": []
+    "roomTypes": [
+      {
+        "name": "DBL STD POOL",
+        "allocation": 0
+      },
+      {
+        "name": "SNG STD POOL",
+        "allocation": 0
+      }
+    ]
   },
   {
     "name": "XANADU CLUB MAKADI BAY (HRG)",
     "roomTypes": [
+      {
+        "name": "FAMILY ROMM GARDEN VIEW",
+        "allocation": 2
+      },
+      {
+        "name": "FAMILY ROMM POOL VIEW",
+        "allocation": 2
+      },
+      {
+        "name": "FAMILY SUITE",
+        "allocation": 2
+      },
       {
         "name": "STANDARD ROOM GARDEN VIEW",
         "allocation": 2
@@ -1460,18 +1992,6 @@
       {
         "name": "SUPERIOR ROOM",
         "allocation": 2
-      },
-      {
-        "name": "FAMILY ROMM GARDEN VIEW",
-        "allocation": 2
-      },
-      {
-        "name": "FAMILY ROMM POOL VIEW",
-        "allocation": 2
-      },
-      {
-        "name": "FAMILY SUITE",
-        "allocation": 2
       }
     ]
   },
@@ -1479,19 +1999,19 @@
     "name": "XANADU MAKADI BAY (HRG)",
     "roomTypes": [
       {
-        "name": "MAIN BUILDING SUPERIOR ROOM GARDEN VIEW",
+        "name": "DUNE FAMILY ROOM",
+        "allocation": 1
+      },
+      {
+        "name": "DUNE FAMILY SWIM UP ROOM",
+        "allocation": 1
+      },
+      {
+        "name": "DUNE SUPERIOR ROOM",
         "allocation": 2
       },
       {
-        "name": "MAIN BUILDING SUPERIOR ROOM SIDE SEA VIEW",
-        "allocation": 2
-      },
-      {
-        "name": "MAIN BUILDING SUPERIOR ROOM SEA VIEW",
-        "allocation": 2
-      },
-      {
-        "name": "MAIN BUILDING SUPERIOR ROOM SWIM UP VIEW",
+        "name": "DUNE SUPERIOR SWIM UP ROOM",
         "allocation": 1
       },
       {
@@ -1511,20 +2031,28 @@
         "allocation": 1
       },
       {
-        "name": "DUNE SUPERIOR ROOM",
+        "name": "MAIN BUILDING SUPERIOR ROOM GARDEN VIEW",
         "allocation": 2
       },
       {
-        "name": "DUNE SUPERIOR SWIM UP ROOM",
+        "name": "MAIN BUILDING SUPERIOR ROOM SEA VIEW",
+        "allocation": 2
+      },
+      {
+        "name": "MAIN BUILDING SUPERIOR ROOM SIDE SEA VIEW",
+        "allocation": 2
+      },
+      {
+        "name": "MAIN BUILDING SUPERIOR ROOM SWIM UP VIEW",
         "allocation": 1
       },
       {
-        "name": "DUNE FAMILY ROOM",
-        "allocation": 1
+        "name": "SINGLE SUPERIOR GARDEN VIEW",
+        "allocation": 0
       },
       {
-        "name": "DUNE FAMILY SWIM UP ROOM",
-        "allocation": 1
+        "name": "Superior main building room sea side",
+        "allocation": 0
       }
     ]
   },
@@ -1532,19 +2060,11 @@
     "name": "XPERIENCE KIROSEIZ PARKLAND",
     "roomTypes": [
       {
-        "name": "Standard Room",
-        "allocation": 1
+        "name": "DOUBLE/TWIN STANDARD VIEW",
+        "allocation": 0
       },
       {
         "name": "Deluxe Room",
-        "allocation": 1
-      },
-      {
-        "name": "Superior Room",
-        "allocation": 1
-      },
-      {
-        "name": "Junior Suite",
         "allocation": 1
       },
       {
@@ -1554,6 +2074,22 @@
       {
         "name": "Grand Family Room",
         "allocation": 0
+      },
+      {
+        "name": "Junior Suite",
+        "allocation": 1
+      },
+      {
+        "name": "SINGLE STANDARD ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "Standard Room",
+        "allocation": 1
+      },
+      {
+        "name": "Superior Room",
+        "allocation": 1
       }
     ]
   },
@@ -1561,15 +2097,15 @@
     "name": "XPERIENCE KIROSEIZ PREMIER",
     "roomTypes": [
       {
-        "name": "Standard Room",
-        "allocation": 1
+        "name": "DOUBLE/TWIN GARDEN VIEW",
+        "allocation": 0
       },
       {
         "name": "Deluxe Room",
         "allocation": 1
       },
       {
-        "name": "Superior Room",
+        "name": "Family Room",
         "allocation": 1
       },
       {
@@ -1577,7 +2113,11 @@
         "allocation": 1
       },
       {
-        "name": "Family Room",
+        "name": "Standard Room",
+        "allocation": 1
+      },
+      {
+        "name": "Superior Room",
         "allocation": 1
       }
     ]
@@ -1586,15 +2126,19 @@
     "name": "XPERIENCE ST. GEORGE HOMESTAY",
     "roomTypes": [
       {
+        "name": "2 STANDARD ROOM",
+        "allocation": 0
+      },
+      {
+        "name": "Family Room",
+        "allocation": 1
+      },
+      {
         "name": "Standard Room",
         "allocation": 1
       },
       {
         "name": "Superior Room",
-        "allocation": 1
-      },
-      {
-        "name": "Family Room",
         "allocation": 1
       }
     ]
@@ -1603,19 +2147,27 @@
     "name": "ZYA REGINA RESORT & AQUA PARK",
     "roomTypes": [
       {
-        "name": "Standard GV",
-        "allocation": 2
-      },
-      {
         "name": "Bungalow GV",
         "allocation": 1
       },
       {
-        "name": "Superior GV/City View",
-        "allocation": 1
+        "name": "DOUBLE SUPERIOR SEA VIEW",
+        "allocation": 0
       },
       {
         "name": "Regal Room GV/BV",
+        "allocation": 1
+      },
+      {
+        "name": "SINGLE GARDEN VIEW",
+        "allocation": 0
+      },
+      {
+        "name": "Standard GV",
+        "allocation": 2
+      },
+      {
+        "name": "Superior GV/City View",
         "allocation": 1
       }
     ]

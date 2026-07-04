@@ -11,7 +11,7 @@ export function Field({
   className,
   hint,
 }: {
-  label: string;
+  label: ReactNode;
   htmlFor?: string;
   error?: string;
   hint?: string;
@@ -20,7 +20,7 @@ export function Field({
 }) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <Label htmlFor={htmlFor}>{label}</Label>
+      <Label htmlFor={htmlFor} className="flex items-center gap-1">{label}</Label>
       {children}
       {hint && !error && <p className="text-[11px] text-muted-foreground">{hint}</p>}
       {error && <p className="text-[11px] text-destructive">{error}</p>}

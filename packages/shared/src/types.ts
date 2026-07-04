@@ -5,7 +5,7 @@ export interface MaterializationCell {
   alloc: number;
   sold: number;
   ss: number;
-  avail: number; // alloc - sold - ss  (improved rule)
+  avail: number; // alloc - sold (SS shown separately)
 }
 
 export interface MaterializationRow {
@@ -62,4 +62,28 @@ export interface SessionUser {
   email: string;
   name: string;
   role: string;
+}
+
+export interface RateChangeEntry {
+  changedAt: string;      // ISO timestamp
+  currency: string;       // bookingCurrency at time of change
+  oldCostUsd: number;
+  oldCostEur: number;
+  oldCostEgp: number;
+  oldSellingUsd: number;
+  oldSellingEur: number;
+  oldSellingEgp: number;
+  oldCalcUsd?: string;
+  oldCalcEur?: string;
+  oldCalcEgp?: string;
+  oldPlUsd: number;
+  oldPlEur: number;
+  oldPlEgp: number;
+}
+
+export interface RebookingStats {
+  bookingCount: number;
+  gainEur: number;
+  gainUsd: number;
+  gainEgp: number;
 }

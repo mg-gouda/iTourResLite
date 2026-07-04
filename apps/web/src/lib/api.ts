@@ -69,6 +69,13 @@ export const patch = <T>(path: string, data?: unknown, init?: RequestInit) =>
     body: data === undefined ? undefined : JSON.stringify(data),
   });
 
+export const put = <T>(path: string, data?: unknown, init?: RequestInit) =>
+  apiFetch<T>(path, {
+    ...init,
+    method: "PUT",
+    body: data === undefined ? undefined : JSON.stringify(data),
+  });
+
 export const del = <T>(path: string, init?: RequestInit) =>
   apiFetch<T>(path, { ...init, method: "DELETE" });
 

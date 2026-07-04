@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import { hasRole, type Role } from "@itour/shared";
+import { hasRole, fmtDate, type Role } from "@itour/shared";
 import { get, post, patch, del, ApiError } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
+import { useConfirm } from "@/components/dialog-provider";
 import { fetchHotelOptions, fetchRoomTypeOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { AsyncCombobox } from "@/components/ui/async-combobox";
 import { Combobox } from "@/components/ui/combobox";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
@@ -31,11 +33,12 @@ interface StopSale {
   hotelRoomType?: { name?: string } | null;
 }
 
-const blank = { id: "", hotelId: "", hotelLabel: "", hotelRoomTypeId: "", qty: "1", fromDate: "", toDate: "" };
+const blank = { id: "", hotelId: "", hotelLabel: "", hotelRoomTypeId: "", qty: "1", fullStop: false, fromDate: "", toDate: "" };
 
 export default function StopSalePage() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const confirm = useConfirm();
   const canEdit = hasRole((user?.role ?? "VIEWER") as Role, "MANAGER");
 
   const [open, setOpen] = useState(false);
@@ -53,7 +56,9 @@ export default function StopSalePage() {
   function openEdit(s: StopSale) {
     setDraft({
       id: s.id, hotelId: s.hotelId, hotelLabel: s.hotel?.name ?? "",
-      hotelRoomTypeId: s.hotelRoomTypeId ?? "", qty: String(s.qty),
+      hotelRoomTypeId: s.hotelRoomTypeId ?? "",
+      fullStop: s.qty < 0,
+      qty: s.qty < 0 ? "1" : String(s.qty),
       fromDate: s.fromDate.slice(0, 10), toDate: s.toDate.slice(0, 10),
     });
     setError(null);
@@ -67,7 +72,7 @@ export default function StopSalePage() {
     const payload = {
       hotelId: draft.hotelId,
       hotelRoomTypeId: draft.hotelRoomTypeId || null,
-      qty: Number(draft.qty) || 0,
+      qty: draft.fullStop ? -1 : (Number(draft.qty) || 1),
       fromDate: draft.fromDate,
       toDate: draft.toDate,
     };
@@ -82,7 +87,7 @@ export default function StopSalePage() {
   }
 
   async function remove(id: string) {
-    if (!confirm("Delete this stop-sale block?")) return;
+    if (!await confirm("Delete this stop-sale block?")) return;
     await del(`/stop-sales/${id}`);
     await qc.invalidateQueries({ queryKey: ["stop-sales"] });
   }
@@ -117,8 +122,8 @@ export default function StopSalePage() {
                     <TD className="max-w-[16rem] truncate font-medium">{s.hotel?.name ?? "—"}</TD>
                     <TD className="text-muted-foreground">{s.hotelRoomType?.name ?? "All room types"}</TD>
                     <TD className="text-right tabular-nums">{s.qty < 0 ? "All" : s.qty}</TD>
-                    <TD>{s.fromDate.slice(0, 10)}</TD>
-                    <TD>{s.toDate.slice(0, 10)}</TD>
+                    <TD>{fmtDate(s.fromDate)}</TD>
+                    <TD>{fmtDate(s.toDate)}</TD>
                     {canEdit && (
                       <TD className="text-right">
                         <div className="flex justify-end gap-1">
@@ -148,10 +153,22 @@ export default function StopSalePage() {
               <Combobox options={[{ value: "", label: "All room types" }, ...(roomTypes.data ?? [])]} value={draft.hotelRoomTypeId}
                 onChange={(v) => setDraft((d) => ({ ...d, hotelRoomTypeId: v }))} placeholder="All room types" disabled={!draft.hotelId} />
             </Field>
-            <Field label="Qty (rooms)"><Input type="number" value={draft.qty} onChange={(e) => setDraft((d) => ({ ...d, qty: e.target.value }))} /></Field>
-            <div />
-            <Field label="From"><Input type="date" value={draft.fromDate} onChange={(e) => setDraft((d) => ({ ...d, fromDate: e.target.value }))} /></Field>
-            <Field label="To"><Input type="date" value={draft.toDate} onChange={(e) => setDraft((d) => ({ ...d, toDate: e.target.value }))} /></Field>
+            <Field label="Qty (rooms)" className={draft.fullStop ? "" : ""}>
+              {draft.fullStop ? (
+                <p className="text-sm font-semibold text-destructive py-2">Full Stop — all rooms blocked</p>
+              ) : (
+                <Input type="number" min={1} value={draft.qty} onChange={(e) => setDraft((d) => ({ ...d, qty: e.target.value }))} />
+              )}
+            </Field>
+            <Field label="Full Stop" className="flex items-end pb-1">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input type="checkbox" className="accent-destructive size-4" checked={draft.fullStop}
+                  onChange={(e) => setDraft((d) => ({ ...d, fullStop: e.target.checked }))} />
+                Block all rooms
+              </label>
+            </Field>
+            <Field label="From"><DateInput value={draft.fromDate} onChange={(v) => setDraft((d) => ({ ...d, fromDate: v }))} /></Field>
+            <Field label="To"><DateInput value={draft.toDate} onChange={(v) => setDraft((d) => ({ ...d, toDate: v }))} /></Field>
           </div>
           <DialogFooter>
             <DialogClose asChild><Button variant="ghost" size="sm">Cancel</Button></DialogClose>

@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: fulvago
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      initContainers:
+        - name: migrate-seed
+          image: ghcr.io/mg-gouda/itourres-api:latest
+          command:
+            - sh
+            - -c
+            - |
+              pnpm --filter @itour/db migrate:deploy &&
+              pnpm --filter @itour/db seed || true
+          env:
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?schema=public
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: fulvago-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fulvago-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: fulvago-secret
+                  key: POSTGRES_DB
+      containers:
+        - name: api
+          image: ghcr.io/mg-gouda/itourres-api:latest
+          ports:
+            - containerPort: 4000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: API_PORT
+              value: "4000"
+            - name: CORS_ORIGIN
+              value: https://fulvago.itmseg.cloud
+            - name: JWT_EXPIRES_IN
+              value: 7d
+            - name: COOKIE_SECURE
+              value: "true"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: fulvago-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fulvago-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: fulvago-secret
+                  key: POSTGRES_DB
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?schema=public
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: fulvago-secret
+                  key: JWT_SECRET
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: fulvago
+spec:
+  selector:
+    app: api
+  ports:
+    - port: 4000
+      targetPort: 4000

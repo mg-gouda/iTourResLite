@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
-  plUsd, plEur, nights,
+  plUsd, plEur, nights, round2,
   type DashboardQueryDto, type BreakdownQueryDto,
-  type DashboardOverview, type BreakdownRow,
+  type DashboardOverview, type BreakdownRow, type RebookingStats, type RateChangeEntry,
 } from "@itour/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -117,8 +117,31 @@ export class DashboardService {
       .map((r) => ({ ...r, sellingEur: round2(r.sellingEur), plEur: round2(r.plEur), plUsd: round2(r.plUsd) }))
       .sort((a, b) => b.sellingEur - a.sellingEur);
   }
-}
 
-function round2(x: number): number {
-  return Math.round((x + Number.EPSILON) * 100) / 100;
+  async rebookingStats(): Promise<RebookingStats> {
+    const rows = await this.prisma.booking.findMany({
+      where: { deletedAt: null, NOT: { rateHistoryJson: null } },
+      select: { costUsd: true, costEur: true, costEgp: true, bookingCurrency: true, rateHistoryJson: true },
+    });
+
+    let bookingCount = 0;
+    let gainEur = 0, gainUsd = 0, gainEgp = 0;
+
+    for (const b of rows) {
+      let history: RateChangeEntry[];
+      try { history = JSON.parse(b.rateHistoryJson!); } catch { continue; }
+      if (!history.length) continue;
+      const first = history[0];
+      // Gain = original cost - current cost (positive means we pay less → more profit)
+      const gEur = round2(first.oldCostEur - Number(b.costEur));
+      const gUsd = round2(first.oldCostUsd - Number(b.costUsd));
+      const gEgp = round2(first.oldCostEgp - Number(b.costEgp));
+      if (gEur > 0 || gUsd > 0 || gEgp > 0) bookingCount++;
+      gainEur += gEur > 0 ? gEur : 0;
+      gainUsd += gUsd > 0 ? gUsd : 0;
+      gainEgp += gEgp > 0 ? gEgp : 0;
+    }
+
+    return { bookingCount, gainEur: round2(gainEur), gainUsd: round2(gainUsd), gainEgp: round2(gainEgp) };
+  }
 }
