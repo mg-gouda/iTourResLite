@@ -1,7 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
-import { userCreateSchema, userUpdateSchema, resetPasswordSchema } from "@itour/shared";
+import { userCreateSchema, userUpdateSchema, resetPasswordSchema, type SessionUser } from "@itour/shared";
 import { UsersService } from "./users.service";
 import { Roles } from "../../common/roles.decorator";
+import { CurrentUser } from "../../common/current-user.decorator";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 
 @Controller("users")
@@ -27,6 +28,12 @@ export class UsersController {
   @Delete(":id")
   remove(@Param("id") id: string) {
     return this.users.remove(id);
+  }
+
+  // Permanent, irreversible delete (distinct from the soft deactivate above).
+  @Delete(":id/hard")
+  hardRemove(@Param("id") id: string, @CurrentUser() user: SessionUser) {
+    return this.users.hardRemove(id, user.id);
   }
 
   @Post(":id/reset-password")

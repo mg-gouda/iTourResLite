@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
-import { stopSaleWriteSchema } from "@itour/shared";
+import { stopSaleWriteSchema, stopSaleBulkSchema } from "@itour/shared";
 import { Roles } from "../../common/roles.decorator";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -24,6 +24,14 @@ export class StopSalesController {
   @Roles("MANAGER")
   create(@Body(new ZodValidationPipe(stopSaleWriteSchema)) dto: any) {
     return this.prisma.stopSale.create({ data: dto });
+  }
+
+  // Create several date periods (for one hotel/room-type) in a single atomic request.
+  @Post("bulk")
+  @Roles("MANAGER")
+  async createBulk(@Body(new ZodValidationPipe(stopSaleBulkSchema)) dto: { items: any[] }) {
+    const res = await this.prisma.stopSale.createMany({ data: dto.items });
+    return { ok: true, count: res.count };
   }
 
   @Patch(":id")

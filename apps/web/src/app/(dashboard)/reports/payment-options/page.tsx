@@ -26,7 +26,7 @@ export default function PaymentOptionsPage() {
   const query = useQuery({
     queryKey: ["report-payment-options", filters],
     queryFn: () => get<any[]>(`/reports/payment-options${qs(filters)}`),
-    enabled: !!(from || to),
+    enabled: !!(from || to || tourOperatorId),
   });
 
   function exportCsv() {
@@ -59,8 +59,8 @@ export default function PaymentOptionsPage() {
       </Card>
       <Card>
         <CardContent className="p-0">
-          {!from && !to ? (
-            <EmptyState title="Set payment option dates" description="Select a date range to load the report." />
+          {!from && !to && !tourOperatorId ? (
+            <EmptyState title="Set a filter" description="Select payment option dates or a tour operator to load the report." />
           ) : query.isLoading ? <TableSkeleton rows={8} cols={8} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !query.data?.length ? <EmptyState title="No payment options" />

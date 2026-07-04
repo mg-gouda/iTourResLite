@@ -287,9 +287,9 @@ ${emailText}`;
     return this.bookings.remove(id, user);
   }
 
-  @Post(":id/send-hotel-email")
-  @Roles("AGENT")
-  async sendHotelEmail(@Param("id") id: string) {
+  // Compose the hotel booking email (subject / from / to / html / text /
+  // attachments). Shared by both "send via SMTP" and "download as .eml".
+  private async composeHotelMail(id: string): Promise<{ options: nodemailer.SendMailOptions; cfg: Record<string, string>; filename: string }> {
     const b = await this.prisma.booking.findFirstOrThrow({
       where: { id, deletedAt: null },
       include: {
@@ -335,10 +335,6 @@ ${emailText}`;
     const cfgRows = await this.prisma.systemConfig.findMany();
     const cfg = Object.fromEntries(cfgRows.map((r) => [r.key, r.value]));
     const companyName = cfg.companyName ?? "Fulvago Travel";
-
-    if (!cfg.smtpHost) {
-      throw new BadRequestException("Email not configured. Go to System Parameters → Email Settings and fill in the SMTP details.");
-    }
 
     // HTML email — inline styles for email client compatibility
     const cell = (label: string, value: string) =>
@@ -403,22 +399,37 @@ ${emailText}`;
       ? `"${cfg.smtpFromName}" <${cfg.smtpFrom}>`
       : (cfg.smtpFrom ?? "reservations@example.com");
 
-    const transporter = nodemailer.createTransport({
-      host: cfg.smtpHost,
-      port: Number(cfg.smtpPort ?? 587),
-      secure: cfg.smtpSecure === "true",
-      auth: cfg.smtpUser ? { user: cfg.smtpUser, pass: cfg.smtpPass ?? "" } : undefined,
-    });
-
-    try {
-      await transporter.sendMail({
+    const ref = String((b as any).internalRef ?? b.toBookingRef ?? "booking").replace(/[^\w.-]+/g, "_");
+    return {
+      options: {
         from: fromField,
         to: hotelEmail ?? "",
         subject,
         html,
         text: plainBody,
         attachments: hasSpo ? [{ filename: spoName ?? "spo-document", path: spoPath! }] : [],
-      });
+      },
+      cfg,
+      filename: `Hotel-Booking-${ref}.eml`,
+    };
+  }
+
+  // Kept for backward compatibility: still sends via SMTP if configured.
+  @Post(":id/send-hotel-email")
+  @Roles("AGENT")
+  async sendHotelEmail(@Param("id") id: string) {
+    const { options, cfg } = await this.composeHotelMail(id);
+    if (!cfg.smtpHost) {
+      throw new BadRequestException("Email not configured. Go to System Parameters → Email Settings and fill in the SMTP details.");
+    }
+    const transporter = nodemailer.createTransport({
+      host: cfg.smtpHost,
+      port: Number(cfg.smtpPort ?? 587),
+      secure: cfg.smtpSecure === "true",
+      auth: cfg.smtpUser ? { user: cfg.smtpUser, pass: cfg.smtpPass ?? "" } : undefined,
+    });
+    try {
+      await transporter.sendMail(options);
     } catch (err: any) {
       const msg: string = err?.message ?? String(err);
       // Surface a readable hint for the most common misconfigurations
@@ -433,8 +444,25 @@ ${emailText}`;
       }
       throw new BadRequestException(`Email send failed: ${msg}`);
     }
-
     return { sent: true };
+  }
+
+  // New "send to hotel" mechanism: download the composed message as a .eml
+  // file (opens in Outlook / Apple Mail / Thunderbird) instead of sending.
+  @Get(":id/hotel-email.eml")
+  @Roles("AGENT")
+  async downloadHotelEmail(@Param("id") id: string, @Res() res: Response) {
+    const { options, filename } = await this.composeHotelMail(id);
+    // Build a standards-compliant RFC-822 message from the same mail options.
+    const MailComposer = require("nodemailer/lib/mail-composer");
+    const raw: Buffer = await new Promise((resolve, reject) => {
+      new MailComposer(options).compile().build((err: Error | null, message: Buffer) => {
+        if (err) reject(err); else resolve(message);
+      });
+    });
+    res.setHeader("Content-Type", "message/rfc822");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(raw);
   }
 
   @Post(":id/upload-spo")

@@ -100,6 +100,7 @@ function TwoFaCard({ enabled, onChanged }: { enabled: boolean; onChanged: () => 
   const [phase, setPhase] = useState<"idle" | "setup" | "disable">("idle");
   const [secret, setSecret] = useState("");
   const [uri, setUri] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -107,8 +108,8 @@ function TwoFaCard({ enabled, onChanged }: { enabled: boolean; onChanged: () => 
   async function startSetup() {
     setLoading(true); setMsg(null);
     try {
-      const data = await get<{ secret: string; uri: string }>("/profile/2fa/setup");
-      setSecret(data.secret); setUri(data.uri); setPhase("setup"); setCode("");
+      const data = await get<{ secret: string; uri: string; qrDataUrl: string }>("/profile/2fa/setup");
+      setSecret(data.secret); setUri(data.uri); setQrDataUrl(data.qrDataUrl); setPhase("setup"); setCode("");
     } catch (err: any) { setMsg({ ok: false, text: err?.message ?? "Setup failed" }); }
     finally { setLoading(false); }
   }
@@ -173,8 +174,20 @@ function TwoFaCard({ enabled, onChanged }: { enabled: boolean; onChanged: () => 
         {phase === "setup" && (
           <div className="space-y-4">
             <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
-              <p className="text-sm font-medium">Step 1 — Open your authenticator app and add a new account</p>
-              <p className="text-xs text-muted-foreground">Scan the link below, or enter the secret key manually.</p>
+              <p className="text-sm font-medium">Step 1 — Open your authenticator app and scan this QR code</p>
+              <p className="text-xs text-muted-foreground">Scan the QR code below, or enter the secret key manually.</p>
+              {qrDataUrl && (
+                <div className="flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrDataUrl}
+                    alt="2FA QR code"
+                    width={200}
+                    height={200}
+                    className="rounded-md border border-border bg-white p-2"
+                  />
+                </div>
+              )}
               <a
                 href={uri}
                 className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-mono text-primary hover:bg-primary/20 transition-colors break-all"

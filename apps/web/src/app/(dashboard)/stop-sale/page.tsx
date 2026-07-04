@@ -33,7 +33,9 @@ interface StopSale {
   hotelRoomType?: { name?: string } | null;
 }
 
-const blank = { id: "", hotelId: "", hotelLabel: "", hotelRoomTypeId: "", qty: "1", fullStop: false, fromDate: "", toDate: "" };
+type Period = { qty: string; fullStop: boolean; fromDate: string; toDate: string };
+const blankPeriod = (): Period => ({ qty: "1", fullStop: false, fromDate: "", toDate: "" });
+const freshDraft = () => ({ id: "", hotelId: "", hotelLabel: "", hotelRoomTypeId: "", periods: [blankPeriod()] });
 
 export default function StopSalePage() {
   const qc = useQueryClient();
@@ -42,7 +44,7 @@ export default function StopSalePage() {
   const canEdit = hasRole((user?.role ?? "VIEWER") as Role, "MANAGER");
 
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState({ ...blank });
+  const [draft, setDraft] = useState(freshDraft());
   const [error, setError] = useState<string | null>(null);
 
   const list = useQuery({ queryKey: ["stop-sales"], queryFn: () => get<StopSale[]>("/stop-sales") });
@@ -52,33 +54,46 @@ export default function StopSalePage() {
     queryFn: () => fetchRoomTypeOptions(draft.hotelId),
   });
 
-  function openNew() { setDraft({ ...blank }); setError(null); setOpen(true); }
+  function openNew() { setDraft(freshDraft()); setError(null); setOpen(true); }
   function openEdit(s: StopSale) {
     setDraft({
       id: s.id, hotelId: s.hotelId, hotelLabel: s.hotel?.name ?? "",
       hotelRoomTypeId: s.hotelRoomTypeId ?? "",
-      fullStop: s.qty < 0,
-      qty: s.qty < 0 ? "1" : String(s.qty),
-      fromDate: s.fromDate.slice(0, 10), toDate: s.toDate.slice(0, 10),
+      periods: [{
+        fullStop: s.qty < 0,
+        qty: s.qty < 0 ? "1" : String(s.qty),
+        fromDate: s.fromDate.slice(0, 10), toDate: s.toDate.slice(0, 10),
+      }],
     });
     setError(null);
     setOpen(true);
   }
 
+  function updatePeriod(i: number, changes: Partial<Period>) {
+    setDraft((d) => ({ ...d, periods: d.periods.map((p, idx) => (idx === i ? { ...p, ...changes } : p)) }));
+  }
+  function addPeriod() { setDraft((d) => ({ ...d, periods: [...d.periods, blankPeriod()] })); }
+  function removePeriod(i: number) { setDraft((d) => ({ ...d, periods: d.periods.filter((_, idx) => idx !== i) })); }
+
   async function save() {
     setError(null);
-    if (!draft.hotelId || !draft.fromDate || !draft.toDate) { setError("Hotel, from and to dates are required."); return; }
-    if (draft.toDate < draft.fromDate) { setError("To date must be on/after from date."); return; }
-    const payload = {
+    if (!draft.hotelId) { setError("Hotel is required."); return; }
+    for (let i = 0; i < draft.periods.length; i++) {
+      const p = draft.periods[i];
+      const prefix = draft.periods.length > 1 ? `Period ${i + 1}: ` : "";
+      if (!p.fromDate || !p.toDate) { setError(`${prefix}from and to dates are required.`); return; }
+      if (p.toDate < p.fromDate) { setError(`${prefix}to date must be on/after from date.`); return; }
+    }
+    const items = draft.periods.map((p) => ({
       hotelId: draft.hotelId,
       hotelRoomTypeId: draft.hotelRoomTypeId || null,
-      qty: draft.fullStop ? -1 : (Number(draft.qty) || 1),
-      fromDate: draft.fromDate,
-      toDate: draft.toDate,
-    };
+      qty: p.fullStop ? -1 : (Number(p.qty) || 1),
+      fromDate: p.fromDate,
+      toDate: p.toDate,
+    }));
     try {
-      if (draft.id) await patch(`/stop-sales/${draft.id}`, payload);
-      else await post("/stop-sales", payload);
+      if (draft.id) await patch(`/stop-sales/${draft.id}`, items[0]);
+      else await post("/stop-sales/bulk", { items });
       await qc.invalidateQueries({ queryKey: ["stop-sales"] });
       setOpen(false);
     } catch (err) {
@@ -153,26 +168,52 @@ export default function StopSalePage() {
               <Combobox options={[{ value: "", label: "All room types" }, ...(roomTypes.data ?? [])]} value={draft.hotelRoomTypeId}
                 onChange={(v) => setDraft((d) => ({ ...d, hotelRoomTypeId: v }))} placeholder="All room types" disabled={!draft.hotelId} />
             </Field>
-            <Field label="Qty (rooms)" className={draft.fullStop ? "" : ""}>
-              {draft.fullStop ? (
-                <p className="text-sm font-semibold text-destructive py-2">Full Stop — all rooms blocked</p>
-              ) : (
-                <Input type="number" min={1} value={draft.qty} onChange={(e) => setDraft((d) => ({ ...d, qty: e.target.value }))} />
-              )}
-            </Field>
-            <Field label="Full Stop" className="flex items-end pb-1">
-              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                <input type="checkbox" className="accent-destructive size-4" checked={draft.fullStop}
-                  onChange={(e) => setDraft((d) => ({ ...d, fullStop: e.target.checked }))} />
-                Block all rooms
-              </label>
-            </Field>
-            <Field label="From"><DateInput value={draft.fromDate} onChange={(v) => setDraft((d) => ({ ...d, fromDate: v }))} /></Field>
-            <Field label="To"><DateInput value={draft.toDate} onChange={(v) => setDraft((d) => ({ ...d, toDate: v }))} /></Field>
           </div>
+
+          <div className="mt-3 space-y-3 max-h-[45vh] overflow-y-auto pr-1">
+            {draft.periods.map((p, i) => (
+              <div key={i} className="rounded-md border p-3">
+                {!draft.id && draft.periods.length > 1 && (
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-muted-foreground">Period {i + 1}</span>
+                    <Button variant="ghost" size="icon" aria-label="Remove period" onClick={() => removePeriod(i)}>
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="From"><DateInput value={p.fromDate} onChange={(v) => updatePeriod(i, { fromDate: v })} /></Field>
+                  <Field label="To"><DateInput value={p.toDate} onChange={(v) => updatePeriod(i, { toDate: v })} /></Field>
+                  <Field label="Qty (rooms)">
+                    {p.fullStop ? (
+                      <p className="text-sm font-semibold text-destructive py-2">Full Stop — all rooms blocked</p>
+                    ) : (
+                      <Input type="number" min={1} value={p.qty} onChange={(e) => updatePeriod(i, { qty: e.target.value })} />
+                    )}
+                  </Field>
+                  <Field label="Full Stop" className="flex items-end pb-1">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                      <input type="checkbox" className="accent-destructive size-4" checked={p.fullStop}
+                        onChange={(e) => updatePeriod(i, { fullStop: e.target.checked })} />
+                      Block all rooms
+                    </label>
+                  </Field>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {!draft.id && (
+            <Button variant="outline" size="sm" onClick={addPeriod} className="mt-2 w-full">
+              <Plus className="size-4" /> Add another period
+            </Button>
+          )}
+
           <DialogFooter>
             <DialogClose asChild><Button variant="ghost" size="sm">Cancel</Button></DialogClose>
-            <Button size="sm" onClick={save}>Save</Button>
+            <Button size="sm" onClick={save}>
+              {draft.id ? "Save" : draft.periods.length > 1 ? `Save ${draft.periods.length} periods` : "Save"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

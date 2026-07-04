@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { Plus, Download, ChevronLeft, ChevronRight, Columns3 } from "lucide-react";
+import { Plus, Download, ChevronLeft, ChevronRight, Columns3, Eye, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
 import {
   formatMoney, fmtDate,
   nights as calcNights,
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge, statusVariant } from "@/components/ui/badge";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
 
@@ -191,17 +192,32 @@ export default function BookingsPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<"arrivalDate" | "departureDate">("arrivalDate");
+  const [dir, setDir] = useState<"asc" | "desc">("desc");
+  const [viewBooking, setViewBooking] = useState<BookingListItem | null>(null);
 
   const filters = { ref: ref || undefined, hotelId: hotelId || undefined, tourOperatorId: tourOperatorId || undefined, marketId: marketId || undefined, resortId: resortId || undefined, status: status || undefined, hasSpo: hasSpo || undefined, currency: currency || undefined, from: from || undefined, to: to || undefined };
 
   const query = useQuery({
-    queryKey: ["bookings", filters, page],
+    queryKey: ["bookings", filters, sort, dir, page],
     placeholderData: keepPreviousData,
     queryFn: () =>
       get<Paginated<BookingListItem>>(
-        `/bookings${qs({ ...filters, page, pageSize: PAGE_SIZE })}`,
+        `/bookings${qs({ ...filters, sort, dir, page, pageSize: PAGE_SIZE })}`,
       ),
   });
+
+  // Clicking a sortable date column: toggle direction if already sorted by it,
+  // else switch to it (default descending). Reset to first page.
+  function toggleSort(col: "arrivalDate" | "departureDate") {
+    if (sort === col) setDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSort(col); setDir("desc"); }
+    setPage(1);
+  }
+  function sortIcon(col: "arrivalDate" | "departureDate") {
+    if (sort !== col) return <ArrowUpDown className="size-3 opacity-40" />;
+    return dir === "asc" ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />;
+  }
 
   function resetFilters() {
     setRef("");
@@ -400,6 +416,7 @@ export default function BookingsPage() {
               <Table>
                 <THead>
                   <TR>
+                    <TH className="w-8" aria-label="View" />
                     {visibleCols.has("internalRef")       && <TH>Internal Ref</TH>}
                     {visibleCols.has("ref")               && <TH>Operator Ref</TH>}
                     {visibleCols.has("sejourRef")         && <TH>Sejour Ref</TH>}
@@ -409,8 +426,16 @@ export default function BookingsPage() {
                     {visibleCols.has("hotel")             && <TH>Hotel</TH>}
                     {visibleCols.has("roomType")          && <TH>Room Type</TH>}
                     {visibleCols.has("roomCategory")      && <TH>Room Cat.</TH>}
-                    {visibleCols.has("arrival")           && <TH>Arrival</TH>}
-                    {visibleCols.has("departure")         && <TH>Departure</TH>}
+                    {visibleCols.has("arrival")           && (
+                      <TH className="cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort("arrivalDate")} title="Sort by arrival">
+                        <span className="inline-flex items-center gap-1">Arrival {sortIcon("arrivalDate")}</span>
+                      </TH>
+                    )}
+                    {visibleCols.has("departure")         && (
+                      <TH className="cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort("departureDate")} title="Sort by departure">
+                        <span className="inline-flex items-center gap-1">Departure {sortIcon("departureDate")}</span>
+                      </TH>
+                    )}
                     {visibleCols.has("nights")            && <TH className="text-right">Nts</TH>}
                     {visibleCols.has("rooms")             && <TH className="text-right">Rms</TH>}
                     {visibleCols.has("adults")            && <TH className="text-right">Adl</TH>}
@@ -452,6 +477,17 @@ export default function BookingsPage() {
                     const n = b.nights ?? calcNights(b.arrivalDate, b.departureDate);
                     return (
                       <TR key={b.id} className="cursor-pointer" onClick={() => router.push(`/bookings/${b.id}`)}>
+                        <TD className="w-8 py-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="View details"
+                            title="View details"
+                            onClick={(e) => { e.stopPropagation(); setViewBooking(b); }}
+                          >
+                            <Eye className="size-4" />
+                          </Button>
+                        </TD>
                         {visibleCols.has("internalRef")       && <TD className="tabular-nums text-muted-foreground">{b.internalRef ?? "—"}</TD>}
                         {visibleCols.has("ref")               && <TD className="font-medium">{b.toBookingRef}</TD>}
                         {visibleCols.has("sejourRef")         && <TD className="text-muted-foreground">{b.sejourRef ?? "—"}</TD>}
@@ -522,6 +558,61 @@ export default function BookingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Read-only booking details */}
+      <Dialog open={!!viewBooking} onOpenChange={(o) => !o && setViewBooking(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Booking details — {viewBooking?.internalRef ?? viewBooking?.toBookingRef ?? ""}</DialogTitle>
+          </DialogHeader>
+          {viewBooking && (() => {
+            const b = viewBooking;
+            const n = b.nights ?? calcNights(b.arrivalDate, b.departureDate);
+            const row = (label: string, value: string | number | null | undefined) => (
+              <div key={label} className="flex justify-between gap-4 py-1.5 border-b border-border/50">
+                <span className="text-xs text-muted-foreground">{label}</span>
+                <span className="text-xs font-medium text-right">{value === null || value === undefined || value === "" ? "—" : value}</span>
+              </div>
+            );
+            return (
+              <div className="grid gap-x-8 sm:grid-cols-2">
+                {row("Internal Ref", b.internalRef ?? "—")}
+                {row("Operator Ref", b.toBookingRef)}
+                {row("Sejour Ref", b.sejourRef ?? "—")}
+                {row("File No.", b.fileNumber ?? "—")}
+                {row("Booking Date", fmtDate(b.bookingDate))}
+                {row("Resort", b.resort?.name ?? b.resort?.code ?? "—")}
+                {row("Hotel", b.hotel?.name ?? "—")}
+                {row("Room Type", b.hotelRoomType?.name ?? "—")}
+                {row("Room Category", b.roomCategory ?? "—")}
+                {row("Arrival", fmtDate(b.arrivalDate))}
+                {row("Departure", fmtDate(b.departureDate))}
+                {row("Nights", n)}
+                {row("Rooms", b.numRooms)}
+                {row("Pax", `${b.adults ?? 0}A / ${b.children ?? 0}C / ${b.infants ?? 0}I`)}
+                {row("Meal Basis", b.mealBasis ?? "—")}
+                {row("Tour Operator", b.tourOperator?.name ?? b.tourOperator?.code ?? "—")}
+                {row("Market", b.market?.name ?? b.market?.code ?? "—")}
+                {row("Hotel Status", b.hotelStatus ?? "—")}
+                {row("Operator Status", b.toStatus ?? "—")}
+                {row("Cost EUR", formatMoney(b.costEur ?? 0, "EUR"))}
+                {row("Sell EUR", formatMoney(b.sellingEur ?? 0, "EUR"))}
+                {row("Cost USD", formatMoney(b.costUsd ?? 0, "USD"))}
+                {row("Sell USD", formatMoney(b.sellingUsd ?? 0, "USD"))}
+                {row("Cost EGP", formatMoney(b.costEgp ?? 0, "EGP"))}
+                {row("Sell EGP", formatMoney(b.sellingEgp ?? 0, "EGP"))}
+                {row("Payment Method", b.paymentMethod ?? "—")}
+                {row("Option Date", b.paymentOptionDate ? fmtDate(b.paymentOptionDate) : "—")}
+                {row("Arr Flight", b.arrFlightNo ? `${b.arrFlightNo} ${b.arrFlightTime ?? ""}`.trim() : "—")}
+                {row("Dep Flight", b.depFlightNo ? `${b.depFlightNo} ${b.depFlightTime ?? ""}`.trim() : "—")}
+                {row("Meet & Assist", b.meetAssistVisa ?? "—")}
+                {row("SPO", b.hasSpo ? "Yes" : "—")}
+                <div className="sm:col-span-2">{row("Remarks", b.remarks ?? "—")}</div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

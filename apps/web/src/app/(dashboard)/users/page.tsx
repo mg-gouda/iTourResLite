@@ -2,13 +2,15 @@
 
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, KeyRound, Power, ShieldCheck, RotateCcw, Check, X } from "lucide-react";
+import { Plus, KeyRound, Power, ShieldCheck, RotateCcw, Check, X, Trash2 } from "lucide-react";
 import {
   ROLES, fmtDate, type Role,
   PERMISSION_GROUPS, PERMISSION_LABELS, DEFAULT_MATRIX,
   type Permission,
 } from "@itour/shared";
 import { get, post, patch, put, del, ApiError } from "@/lib/api";
+import { useAuth } from "@/components/auth-provider";
+import { useConfirm } from "@/components/dialog-provider";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -34,6 +36,8 @@ interface UserRow {
 
 export default function UsersPage() {
   const qc = useQueryClient();
+  const { user: me } = useAuth();
+  const confirm = useConfirm();
   const list = useQuery({ queryKey: ["users"], queryFn: () => get<UserRow[]>("/users") });
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -67,6 +71,20 @@ export default function UsersPage() {
       await patch(`/users/${u.id}`, { active: true });
     }
     await qc.invalidateQueries({ queryKey: ["users"] });
+  }
+
+  async function hardDelete(u: UserRow) {
+    setError(null);
+    const ok = await confirm(
+      `Permanently delete ${u.name} (${u.email})? This cannot be undone. Their bookings and audit history are kept but detached from this account.`,
+    );
+    if (!ok) return;
+    try {
+      await del(`/users/${u.id}/hard`);
+      await qc.invalidateQueries({ queryKey: ["users"] });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete user.");
+    }
   }
 
   async function doReset() {
@@ -125,6 +143,11 @@ export default function UsersPage() {
                         <Button variant="ghost" size="icon" aria-label="Toggle active" onClick={() => toggleActive(u)}>
                           <Power className={u.active ? "size-4 text-destructive" : "size-4 text-emerald-400"} />
                         </Button>
+                        {u.id !== me?.id && (
+                          <Button variant="ghost" size="icon" aria-label="Delete user permanently" title="Delete permanently" onClick={() => hardDelete(u)}>
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     </TD>
                   </TR>
