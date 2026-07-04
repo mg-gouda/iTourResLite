@@ -49,7 +49,7 @@ export class ReportsController {
         tourOperator: { select: { id: true, code: true, name: true } },
         market:       { select: { id: true, code: true, name: true } },
         resort:       { select: { id: true, code: true, name: true } },
-      } as any,
+      },
     });
   }
 
@@ -67,7 +67,7 @@ export class ReportsController {
         hotel: { select: { id: true, name: true } },
         hotelRoomType: { select: { id: true, name: true } },
         tourOperator: { select: { id: true, code: true } },
-      } as any,
+      },
     });
   }
 
@@ -85,7 +85,7 @@ export class ReportsController {
         hotel: { select: { id: true, name: true } },
         hotelRoomType: { select: { id: true, name: true } },
         tourOperator: { select: { id: true, code: true } },
-      } as any,
+      },
     });
   }
 
@@ -102,10 +102,10 @@ export class ReportsController {
         costEur: true, sellingEur: true, visaHandling: true,
         costEgp: true, sellingEgp: true,
         ebdPercent: true, ebdPaymentDate: true,
-        paymentMethod: true, paymentOptionDate: true, accountingRemarks: true,
+        paymentMethod: true, paymentOptionDate: true,
         hotel: { select: { id: true, name: true } },
         tourOperator: { select: { id: true, code: true, name: true } },
-      } as any,
+      },
     });
   }
 
@@ -121,11 +121,11 @@ export class ReportsController {
       select: {
         id: true, toBookingRef: true, arrivalDate: true, departureDate: true,
         hotelStatus: true, numRooms: true,
-        paymentMethod: true, paymentOptionDate: true, accountingRemarks: true,
+        paymentMethod: true, paymentOptionDate: true,
         costUsd: true, sellingUsd: true, costEur: true, sellingEur: true,
         hotel: { select: { id: true, name: true } },
         tourOperator: { select: { id: true, code: true } },
-      } as any,
+      },
     });
   }
 
@@ -148,7 +148,7 @@ export class ReportsController {
         hotel: { select: { id: true, name: true } },
         hotelRoomType: { select: { id: true, name: true } },
         tourOperator: { select: { id: true, code: true } },
-      } as any,
+      },
     });
   }
 }
