@@ -78,6 +78,18 @@ spec:
                 secretKeyRef:
                   name: fulvago-secret
                   key: JWT_SECRET
+            - name: APP_HOST
+              value: fulvago.itmseg.cloud
+            - name: LICENSE_SERVER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fulvago-secret
+                  key: LICENSE_SERVER_URL
+            - name: LICENSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fulvago-secret
+                  key: LICENSE_PUBLIC_KEY
           readinessProbe:
             httpGet:
               path: /api/v1/health
