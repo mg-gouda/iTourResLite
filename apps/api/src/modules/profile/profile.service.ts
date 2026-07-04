@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
+import * as QRCode from "qrcode";
 import { hashPassword, verifyPassword } from "../../common/password";
 import { generateTotpSecret, makeOtpauthUri, verifyTotp } from "../../common/totp";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -22,7 +23,9 @@ export class ProfileService {
     const secret = generateTotpSecret();
     await this.prisma.user.update({ where: { id: userId }, data: { twoFactorSecret: secret, twoFactorEnabled: false } });
     const uri = makeOtpauthUri(secret, user.email);
-    return { secret, uri };
+    // Render the otpauth URI as a scannable QR code (PNG data URL).
+    const qrDataUrl = await QRCode.toDataURL(uri, { margin: 1, width: 220 });
+    return { secret, uri, qrDataUrl };
   }
 
   async enable2fa(userId: string, code: string) {
