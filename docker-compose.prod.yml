@@ -25,8 +25,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot: sync schema (db push) + seed, then exit. Mirrors the intent of
-  # the k8s api initContainer, adapted to this repo's schema-push workflow.
+  # One-shot: sync schema (db push) + seed, then exit.
   migrate:
     # Reuses the image built by the `api` service (same tag) — no separate build
     # to avoid a concurrent export collision on the shared tag.
