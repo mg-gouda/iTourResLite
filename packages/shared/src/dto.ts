@@ -144,6 +144,12 @@ export const stopSaleWriteSchema = z.object({
 });
 export type StopSaleWriteDto = z.infer<typeof stopSaleWriteSchema>;
 
+// Bulk create: one hotel/room-type with several date periods in a single request.
+export const stopSaleBulkSchema = z.object({
+  items: z.array(stopSaleWriteSchema).min(1).max(100),
+});
+export type StopSaleBulkDto = z.infer<typeof stopSaleBulkSchema>;
+
 // ---- Users ----
 export const userCreateSchema = z.object({
   email: z.string().email(),

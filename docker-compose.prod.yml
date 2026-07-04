@@ -1,0 +1,100 @@
+name: itour-reservation
+
+# Production deploy built from source (the GHCR images are private and no
+# registry credential is available on this host). Images are built locally
+# from the repo's production Dockerfile targets.
+#
+# Schema is applied with `prisma db push` (this repo has no prisma/migrations
+# history — it syncs the schema directly), then seeded. Fronted by the host
+# nginx reverse proxy for fulvago.itmseg.cloud.
+# Secrets come from .env (POSTGRES_PASSWORD, JWT_SECRET) — never committed.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-itour}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-itour}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-itour}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: sync schema (db push) + seed, then exit. Mirrors the intent of
+  # the k8s api initContainer, adapted to this repo's schema-push workflow.
+  migrate:
+    # Reuses the image built by the `api` service (same tag) — no separate build
+    # to avoid a concurrent export collision on the shared tag.
+    image: itour-api:local
+    restart: "no"
+    # HARDENING: under the "setup" profile, so a plain `docker compose up -d`
+    # (and the systemd boot unit) never runs it. Run schema push / seed
+    # explicitly and intentionally with:
+    #   docker compose -f docker-compose.prod.yml --profile setup run --rm migrate
+    profiles: ["setup"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-itour}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-itour}?schema=public
+    command:
+      - sh
+      - -c
+      - pnpm --filter @itour/db generate && pnpm --filter @itour/db push --skip-generate && (pnpm --filter @itour/db seed || true)
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: itour-api:local
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: production
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: "4000"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-itour}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-itour}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?set in .env}
+      JWT_EXPIRES_IN: 7d
+      COOKIE_SECURE: "true"
+      CORS_ORIGIN: https://fulvago.itmseg.cloud
+    # Override the image's default CMD (which runs migrate:deploy — no migration
+    # history exists here); the `migrate` service handles schema + seed.
+    command:
+      - sh
+      - -c
+      - pnpm --filter @itour/api start
+    ports:
+      - "127.0.0.1:8011:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    image: itour-web:local
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: production
+      args:
+        NEXT_PUBLIC_API_URL: https://fulvago.itmseg.cloud/api/v1
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://fulvago.itmseg.cloud/api/v1
+    ports:
+      - "127.0.0.1:8010:3000"
+    depends_on:
+      - api
+
+volumes:
+  pg_data:

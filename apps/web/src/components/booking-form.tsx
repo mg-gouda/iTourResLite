@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Save, Trash2, Search, ArrowLeft, Mail, Plus, X, AlertTriangle, Sparkles, Calculator, Info } from "lucide-react";
+import { Save, Trash2, Search, ArrowLeft, Mail, Plus, X, AlertTriangle, Sparkles, Calculator, Info, Download } from "lucide-react";
 import {
   nights as calcNights, plUsd, plEur, plEgp, ebdAmountUsd, ebdAmountEur, ebdAmountEgp,
   formatMoney,
@@ -567,10 +567,29 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
     setSendingEmail(true);
     setError(null);
     try {
-      await post(`/bookings/${bookingId}/send-hotel-email`, {});
-      notify(true, "Email sent to hotel successfully.");
+      // Download the composed message as a .eml file (opens in Outlook / Apple
+      // Mail / Thunderbird) instead of sending it via the system.
+      const res = await fetch(`${API}/bookings/${bookingId}/hotel-email.eml`, { credentials: "include" });
+      if (!res.ok) {
+        let msg = "Failed to generate email file.";
+        try { const j = await res.json(); msg = j?.error?.message ?? msg; } catch { /* non-JSON */ }
+        throw new ApiError(msg, res.status);
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition") ?? "";
+      const match = cd.match(/filename="?([^"]+)"?/);
+      const filename = match?.[1] ?? `Hotel-Booking-${bookingId}.eml`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      notify(true, "Email file downloaded.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to send email.");
+      setError(err instanceof ApiError ? err.message : "Failed to download email.");
     } finally {
       setSendingEmail(false);
     }
@@ -747,7 +766,7 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
             )}
             {bookingId && !isViewer && (
               <Button type="button" variant="outline" size="sm" onClick={sendToHotel} disabled={sendingEmail}>
-                {sendingEmail ? <Spinner className="size-4" /> : <Mail className="size-4" />} Send to Hotel
+                {sendingEmail ? <Spinner className="size-4" /> : <Download className="size-4" />} Download Email
               </Button>
             )}
             {bookingId && canDeleteBooking(role) && (

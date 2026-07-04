@@ -19,3 +19,4 @@ apps/api/uploads/
 # Temp scripts
 scripts/export-seed.js
 scripts/migrate-bookings.js
+k8s/secret.yaml

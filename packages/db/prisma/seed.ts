@@ -264,10 +264,21 @@ async function main() {
   }
 
   // ---- Replace bookings + stop sales ----
+  // HARDENING: this section wipes and reseeds bookings + stop-sales. On a
+  // populated (live) database that would destroy real data, so it only runs
+  // when the bookings table is empty, or when explicitly forced with
+  // FORCE_SEED=true. The lookup/hotel/user upserts above are non-destructive
+  // and always run.
+  const stats = { bookings: 0, skipped: 0, stopsales: 0, ssSkipped: 0 };
+  const existingBookings = await prisma.booking.count();
+  const force = process.env.FORCE_SEED === "true";
+  if (existingBookings > 0 && !force) {
+    console.log(`Seed: ${existingBookings} bookings already present — skipping destructive bookings/stop-sales reseed (set FORCE_SEED=true to override).`);
+    console.log("Seed complete:", JSON.stringify(stats));
+    return;
+  }
   await prisma.booking.deleteMany();
   await prisma.stopSale.deleteMany();
-
-  const stats = { bookings: 0, skipped: 0, stopsales: 0, ssSkipped: 0 };
 
   for (const b of bookings) {
     const arr = toDate(b.arrivalDate);
