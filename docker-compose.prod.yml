@@ -62,6 +62,16 @@ services:
       JWT_EXPIRES_IN: 7d
       COOKIE_SECURE: "true"
       CORS_ORIGIN: https://fulvago.itmseg.cloud
+      # ---- Licensing (MGLicenses) ----
+      APP_HOST: fulvago.itmseg.cloud
+      LICENSE_SERVER_URL: ${LICENSE_SERVER_URL:-}
+      # Ed25519 public key from the license server (not secret). Paste the PEM
+      # as a YAML literal block below once available, e.g.:
+      #   LICENSE_PUBLIC_KEY: |
+      #     -----BEGIN PUBLIC KEY-----
+      #     ...
+      #     -----END PUBLIC KEY-----
+      LICENSE_PUBLIC_KEY: ${LICENSE_PUBLIC_KEY:-}
     # Override the image's default CMD (which runs migrate:deploy — no migration
     # history exists here); the `migrate` service handles schema + seed.
     command:

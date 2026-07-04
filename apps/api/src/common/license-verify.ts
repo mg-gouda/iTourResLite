@@ -2,7 +2,7 @@
  * MG License client — implements the contract from the hand-off doc.
  * Zero dependencies: Node built-in `crypto` + global `fetch` (Node 18+).
  */
-import { createVerify, randomUUID } from "node:crypto";
+import { verify as edVerify, randomUUID } from "node:crypto";
 
 export interface CheckLicenseOptions {
   token: string;
@@ -44,7 +44,9 @@ function verifySignature(token: string, publicKeyPem: string): boolean {
     if (parts.length !== 3) return false;
     const data = `${parts[0]}.${parts[1]}`;
     const sig = b64urlDecode(parts[2]);
-    return createVerify("ed25519").update(data).verify(publicKeyPem, sig);
+    // Ed25519 (EdDSA) must use the one-shot verify with a null digest — the
+    // streaming createVerify() API does not support Ed25519 and throws.
+    return edVerify(null, Buffer.from(data), publicKeyPem, sig);
   } catch { return false; }
 }
 
