@@ -453,6 +453,10 @@ ${emailText}`;
   @Roles("AGENT")
   async downloadHotelEmail(@Param("id") id: string, @Res() res: Response) {
     const { options, filename } = await this.composeHotelMail(id);
+    // X-Unsent:1 tells Outlook / desktop mail clients to open the .eml in
+    // compose/edit mode (editable body, add/change recipient, then Send)
+    // instead of read-only "received message" mode.
+    (options as any).headers = { ...(options as any).headers, "X-Unsent": "1" };
     // Build a standards-compliant RFC-822 message from the same mail options.
     const MailComposer = require("nodemailer/lib/mail-composer");
     const raw: Buffer = await new Promise((resolve, reject) => {
