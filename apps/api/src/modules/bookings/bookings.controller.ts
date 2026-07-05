@@ -325,7 +325,14 @@ ${emailText}`;
       else if (Number(b.costEgp)) costLine = `EGP ${Number(b.costEgp).toFixed(2)}`;
     }
 
-    const subject = `${b.hotelStatus} @ ${b.hotel.name} - ${(b as any).internalRef ?? b.toBookingRef}`;
+    // Friendlier status wording for the hotel-facing email.
+    const STATUS_LABEL: Record<string, string> = { Confirmed: "New Booking", CXL: "Cancelled" };
+    const displayStatus = STATUS_LABEL[b.hotelStatus] ?? b.hotelStatus;
+    const isCancellation = b.hotelStatus === "CXL";
+    const introLine = isCancellation
+      ? "Regret to ask you to cancel the below booking."
+      : "Kindly reserve and confirm the following booking according to current valid rate.";
+    const subject = `${displayStatus} @ ${b.hotel.name} - ${(b as any).internalRef ?? b.toBookingRef}`;
     const hotelEmail = (b.hotel as any).email as string | null;
     const spoPath    = (b as any).spoDocumentPath as string | null;
     const spoName    = (b as any).spoDocumentName as string | null;
@@ -368,7 +375,7 @@ ${emailText}`;
       `<p style="margin:0 0 6px;font-size:14px">Dear Partner,</p>` +
       `<p style="margin:0 0 6px;font-size:14px">Greetings from <strong>${companyName}</strong>.</p>` +
       `<p style="margin:0 0 6px;font-size:14px">First of all let me seize this opportunity to thank you for your co-operation &amp; support is always expected.</p>` +
-      `<p style="margin:0 0 24px;font-size:14px">Kindly reserve and confirm the following booking according to current valid rate.</p>` +
+      `<p style="margin:0 0 24px;font-size:14px">${introLine}</p>` +
       `<table style="width:100%;border-collapse:collapse;border:1px solid #dde3ed;border-radius:6px;overflow:hidden"><tbody>${tableRows}</tbody></table>` +
       (hasSpo ? `<p style="margin:16px 0 0;font-size:12px;color:#6b7280;font-style:italic">&#128206; Please find the SPO document &ldquo;${spoName}&rdquo; attached to this email.</p>` : ``) +
       `<p style="margin:32px 0 4px;font-size:14px">Thanks &amp; Best regards,</p>` +
@@ -378,7 +385,7 @@ ${emailText}`;
     // Plain text fallback
     const plainBody =
       `Dear Partner,\r\n\r\nGreetings from ${companyName}.\r\n\r\n` +
-      `Kindly reserve and confirm the following booking:\r\n\r\n` +
+      `${introLine}\r\n\r\n` +
       [
         `Hotel:          ${b.hotel.name}`,
         `Room Type:      ${b.hotelRoomType.name}`,
