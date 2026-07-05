@@ -313,18 +313,6 @@ ${emailText}`;
       ? effectiveGuests.map((g) => `${g.title} ${g.name}`).join(", ")
       : (b.guestNames ?? "—");
 
-    // Cost — relevant currency only
-    const cur = (b as any).bookingCurrency as string | null;
-    let costLine = "—";
-    if (cur === "EUR") costLine = `EUR ${Number(b.costEur).toFixed(2)}`;
-    else if (cur === "EGP") costLine = `EGP ${Number(b.costEgp).toFixed(2)}`;
-    else if (cur === "USD" || cur === "GBP") costLine = `USD ${Number(b.costUsd).toFixed(2)}`;
-    else {
-      if (Number(b.costUsd)) costLine = `USD ${Number(b.costUsd).toFixed(2)}`;
-      else if (Number(b.costEur)) costLine = `EUR ${Number(b.costEur).toFixed(2)}`;
-      else if (Number(b.costEgp)) costLine = `EGP ${Number(b.costEgp).toFixed(2)}`;
-    }
-
     // Friendlier status wording for the hotel-facing email.
     const STATUS_LABEL: Record<string, string> = { Confirmed: "New Booking", CXL: "Cancelled" };
     const displayStatus = STATUS_LABEL[b.hotelStatus] ?? b.hotelStatus;
@@ -360,7 +348,6 @@ ${emailText}`;
       cell("Nights", String(nts)) +
       cell("Meal Basis", b.mealBasis) +
       cell("Guest Names", guests) +
-      cell("Cost", costLine) +
       ((b as any).hotelRemarks ? cell("Special Requests", (b as any).hotelRemarks) : "");
 
     const html =
@@ -396,7 +383,6 @@ ${emailText}`;
         `Nights:         ${nts}`,
         `Meal Basis:     ${b.mealBasis}`,
         `Guest Names:    ${guests}`,
-        `Cost:           ${costLine}`,
         ...((b as any).hotelRemarks ? [`Special Req.:   ${(b as any).hotelRemarks}`] : []),
       ].join("\r\n") +
       (hasSpo ? `\r\n\r\n[Attached: ${spoName}]` : ``) +
