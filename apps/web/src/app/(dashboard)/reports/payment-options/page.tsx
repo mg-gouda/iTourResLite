@@ -20,23 +20,27 @@ export default function PaymentOptionsPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [tourOperatorId, setTourOperatorId] = useState("");
+  const [status, setStatus] = useState("");
   const toOpts = lookupToOptions(lookups.data?.tourOperators);
-  const filters = { from, to, tourOperatorId };
+  const statusOpts = lookups.data?.bookingStatuses ?? [];
+  const filters = { from, to, tourOperatorId, status };
 
   const query = useQuery({
     queryKey: ["report-payment-options", filters],
     queryFn: () => get<any[]>(`/reports/payment-options${qs(filters)}`),
-    enabled: !!(from || to || tourOperatorId),
+    enabled: !!(from || to || tourOperatorId || status),
   });
 
   function exportCsv() {
     const rows = query.data ?? [];
-    const header = ["Ref", "Hotel", "Arr Date", "Status", "Rooms", "Pay Method", "Payment Option Date", "Cost EUR", "Sell EUR"];
+    const header = ["Ref", "Hotel", "Arr Date", "Status", "Rooms", "Pay Method", "Payment Option Date", "Currency", "Cost USD", "Sell USD", "Cost EUR", "Sell EUR", "Cost EGP", "Sell EGP"];
     const lines = rows.map((b) => [
       b.toBookingRef, b.hotel?.name, fmtDate(b.arrivalDate),
       b.hotelStatus, b.numRooms, b.paymentMethod,
-      fmtDate(b.paymentOptionDate),
+      fmtDate(b.paymentOptionDate), b.bookingCurrency ?? "",
+      Number(b.costUsd), Number(b.sellingUsd),
       Number(b.costEur), Number(b.sellingEur),
+      Number(b.costEgp), Number(b.sellingEgp),
     ].map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
     const csv = [header.join(","), ...lines].join("\n");
     const a = Object.assign(document.createElement("a"), {
@@ -55,13 +59,14 @@ export default function PaymentOptionsPage() {
           <Field label="Payment Option From"><DateInput value={from} onChange={setFrom} /></Field>
           <Field label="Payment Option To"><DateInput value={to} onChange={setTo} /></Field>
           <Field label="Tour Operator"><Combobox options={toOpts} value={tourOperatorId} onChange={setTourOperatorId} placeholder="Any" /></Field>
+          <Field label="Hotel Booking Status"><Combobox options={statusOpts} value={status} onChange={setStatus} placeholder="Any" /></Field>
         </CardContent>
       </Card>
       <Card>
         <CardContent className="p-0">
-          {!from && !to && !tourOperatorId ? (
-            <EmptyState title="Set a filter" description="Select payment option dates or a tour operator to load the report." />
-          ) : query.isLoading ? <TableSkeleton rows={8} cols={8} />
+          {!from && !to && !tourOperatorId && !status ? (
+            <EmptyState title="Set a filter" description="Select payment option dates, a tour operator, or a booking status to load the report." />
+          ) : query.isLoading ? <TableSkeleton rows={8} cols={12} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !query.data?.length ? <EmptyState title="No payment options" />
           : (
@@ -69,8 +74,10 @@ export default function PaymentOptionsPage() {
               <THead>
                 <TR>
                   <TH>Ref</TH><TH>Hotel</TH><TH>Arr Date</TH><TH>Status</TH>
-                  <TH>Pay Method</TH><TH>Payment Option Date</TH>
+                  <TH>Pay Method</TH><TH>Payment Option Date</TH><TH>Currency</TH>
+                  <TH className="text-right">Cost USD</TH><TH className="text-right">Sell USD</TH>
                   <TH className="text-right">Cost EUR</TH><TH className="text-right">Sell EUR</TH>
+                  <TH className="text-right">Cost EGP</TH><TH className="text-right">Sell EGP</TH>
                 </TR>
               </THead>
               <TBody>
@@ -82,8 +89,13 @@ export default function PaymentOptionsPage() {
                     <TD>{b.hotelStatus}</TD>
                     <TD>{b.paymentMethod}</TD>
                     <TD className="font-medium text-warning">{fmtDate(b.paymentOptionDate)}</TD>
+                    <TD>{b.bookingCurrency ?? "—"}</TD>
+                    <TD className="text-right tabular-nums">{formatMoney(b.costUsd, "USD")}</TD>
+                    <TD className="text-right tabular-nums">{formatMoney(b.sellingUsd, "USD")}</TD>
                     <TD className="text-right tabular-nums">{formatMoney(b.costEur, "EUR")}</TD>
                     <TD className="text-right tabular-nums">{formatMoney(b.sellingEur, "EUR")}</TD>
+                    <TD className="text-right tabular-nums">{formatMoney(b.costEgp, "EGP")}</TD>
+                    <TD className="text-right tabular-nums">{formatMoney(b.sellingEgp, "EGP")}</TD>
                   </TR>
                 ))}
               </TBody>

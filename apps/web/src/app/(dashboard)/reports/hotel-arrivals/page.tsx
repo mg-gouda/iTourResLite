@@ -24,14 +24,16 @@ export default function HotelArrivalsPage() {
   const [hotelId, setHotelId] = useState("");
   const [hotelLabel, setHotelLabel] = useState("");
   const [marketId, setMarketId] = useState("");
+  const [status, setStatus] = useState("");
 
   const marketOpts = lookupToOptions(lookups.data?.markets);
-  const filters = { from, to, hotelId, marketId };
+  const statusOpts = lookups.data?.bookingStatuses ?? [];
+  const filters = { from, to, hotelId, marketId, status };
 
   const query = useQuery({
     queryKey: ["report-hotel-arrivals", filters],
     queryFn: () => get<any[]>(`/reports/hotel-arrivals${qs(filters)}`),
-    enabled: !!(from || to || hotelId),
+    enabled: !!(from || to || hotelId || status),
   });
 
   function exportCsv() {
@@ -63,7 +65,7 @@ export default function HotelArrivalsPage() {
       <PageHeader title="Hotel Arrival List" description="Arrivals filtered by date range."
         actions={<Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>} />
       <Card className="mb-4">
-        <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+        <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4 lg:grid-cols-5">
           <Field label="Arrival From"><DateInput value={from} onChange={setFrom} /></Field>
           <Field label="Arrival To"><DateInput value={to} onChange={setTo} /></Field>
           <Field label="Hotel">
@@ -71,12 +73,13 @@ export default function HotelArrivalsPage() {
               onChange={(v, l) => { setHotelId(v); setHotelLabel(l); }} placeholder="Any hotel" />
           </Field>
           <Field label="Market"><Combobox options={marketOpts} value={marketId} onChange={setMarketId} placeholder="Any" /></Field>
+          <Field label="Hotel Booking Status"><Combobox options={statusOpts} value={status} onChange={setStatus} placeholder="Any" /></Field>
         </CardContent>
       </Card>
       <Card>
         <CardContent className="p-0">
-          {!from && !to && !hotelId ? (
-            <EmptyState title="Set a filter" description="Select arrival dates or a hotel to load the report." />
+          {!from && !to && !hotelId && !status ? (
+            <EmptyState title="Set a filter" description="Select arrival dates, a hotel, or a booking status to load the report." />
           ) : query.isLoading ? <TableSkeleton rows={8} cols={10} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !query.data?.length ? <EmptyState title="No arrivals" />

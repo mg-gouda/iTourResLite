@@ -25,37 +25,37 @@ export class HotelsController {
   }
 
   @Post()
-  @Roles("ADMIN")
+  @Roles("MANAGER")
   create(@Body(new ZodValidationPipe(hotelWriteSchema)) dto: any) {
     return this.hotels.create(dto);
   }
 
   @Patch(":id")
-  @Roles("ADMIN")
+  @Roles("MANAGER")
   update(@Param("id") id: string, @Body(new ZodValidationPipe(hotelWriteSchema.partial())) dto: any) {
     return this.hotels.update(id, dto);
   }
 
   @Delete(":id")
-  @Roles("ADMIN")
+  @Roles("MANAGER")
   remove(@Param("id") id: string) {
     return this.hotels.remove(id);
   }
 
   @Post(":id/room-types")
-  @Roles("ADMIN")
+  @Roles("MANAGER")
   addRoomType(@Param("id") id: string, @Body(new ZodValidationPipe(roomTypeWriteSchema)) dto: any) {
     return this.hotels.addRoomType(id, dto);
   }
 
   @Patch("room-types/:rtId")
-  @Roles("ADMIN")
+  @Roles("MANAGER")
   updateRoomType(@Param("rtId") rtId: string, @Body(new ZodValidationPipe(roomTypeWriteSchema.partial())) dto: any) {
     return this.hotels.updateRoomType(rtId, dto);
   }
 
   @Delete("room-types/:rtId")
-  @Roles("ADMIN")
+  @Roles("MANAGER")
   removeRoomType(@Param("rtId") rtId: string) {
     return this.hotels.removeRoomType(rtId);
   }

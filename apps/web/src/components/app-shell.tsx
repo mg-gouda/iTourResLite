@@ -31,6 +31,7 @@ import {
   Moon,
   UserCircle,
   KeySquare,
+  Building2,
 } from "lucide-react";
 import { hasRole, type Role } from "@itour/shared";
 import { useAuth } from "@/components/auth-provider";
@@ -44,6 +45,7 @@ interface NavItem {
   label: string;
   icon: typeof LayoutDashboard;
   adminOnly?: boolean;
+  minRole?: Role;
 }
 
 const VIEWS: NavItem[] = [
@@ -57,6 +59,7 @@ const MANAGE: NavItem[] = [
   { href: "/bookings", label: "Bookings", icon: BookOpen },
   { href: "/stop-sale", label: "Stop Sale", icon: Ban },
   { href: "/materialization", label: "Materialization", icon: Layers },
+  { href: "/system/parameters", label: "System Parameters", icon: SlidersHorizontal, minRole: "MANAGER" },
 ];
 
 const REPORTS: NavItem[] = [
@@ -69,7 +72,7 @@ const REPORTS: NavItem[] = [
 ];
 
 const SETTINGS: NavItem[] = [
-  { href: "/system/parameters",  label: "System Parameters", icon: SlidersHorizontal, adminOnly: true },
+  { href: "/system/company",     label: "Company",           icon: Building2,          adminOnly: true },
   { href: "/system/permissions", label: "Permissions",       icon: ShieldCheck,        adminOnly: true },
   { href: "/system/license",     label: "License",           icon: KeySquare,          adminOnly: true },
   { href: "/system/audit",       label: "Audit Trail",       icon: ShieldCheck,        adminOnly: true },
@@ -91,7 +94,9 @@ function NavGroup({
   onNavigate: () => void;
   collapsed: boolean;
 }) {
-  const visible = items.filter((i) => !i.adminOnly || role === "ADMIN");
+  const visible = items.filter((i) =>
+    (!i.adminOnly || role === "ADMIN") && (!i.minRole || hasRole(role, i.minRole)),
+  );
   if (visible.length === 0) return null;
 
   return (

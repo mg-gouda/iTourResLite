@@ -1,5 +1,6 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { z } from "zod";
+import { zBookingStatus } from "@itour/shared";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -10,6 +11,7 @@ const dateRange = z.object({
   tourOperatorId: z.string().optional(),
   marketId:       z.string().optional(),
   resortId:       z.string().optional(),
+  status:         zBookingStatus.optional(),
 });
 type DateRange = z.infer<typeof dateRange>;
 
@@ -24,6 +26,7 @@ export class ReportsController {
     if (q.tourOperatorId) where.tourOperatorId = q.tourOperatorId;
     if (q.marketId)       where.marketId = q.marketId;
     if (q.resortId)       where.resortId = q.resortId;
+    if (q.status)         where.hotelStatus = q.status;
     if (q.from || q.to) {
       where[dateField] = {};
       if (q.from) where[dateField].gte = q.from;
@@ -120,9 +123,10 @@ export class ReportsController {
       orderBy: { paymentOptionDate: "asc" },
       select: {
         id: true, toBookingRef: true, arrivalDate: true, departureDate: true,
-        hotelStatus: true, numRooms: true,
+        hotelStatus: true, numRooms: true, bookingCurrency: true,
         paymentMethod: true, paymentOptionDate: true,
         costUsd: true, sellingUsd: true, costEur: true, sellingEur: true,
+        costEgp: true, sellingEgp: true,
         hotel: { select: { id: true, name: true } },
         tourOperator: { select: { id: true, code: true } },
       },

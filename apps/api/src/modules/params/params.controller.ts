@@ -31,19 +31,19 @@ function crud(entity: LookupEntity, path: string, orderBy = BY_SORT_ORDER) {
     }
 
     @Post()
-    @Roles("ADMIN")
+    @Roles("MANAGER")
     create(@Body(new ZodValidationPipe(lookupWriteSchema)) dto: any) {
       return (this.prisma as any)[entity].create({ data: dto });
     }
 
     @Patch(":id")
-    @Roles("ADMIN")
+    @Roles("MANAGER")
     update(@Param("id") id: string, @Body(new ZodValidationPipe(lookupWriteSchema.partial())) dto: any) {
       return (this.prisma as any)[entity].update({ where: { id }, data: dto });
     }
 
     @Delete(":id")
-    @Roles("ADMIN")
+    @Roles("MANAGER")
     async remove(@Param("id") id: string) {
       await (this.prisma as any)[entity].delete({ where: { id } });
       return { ok: true };

@@ -60,6 +60,17 @@ const optDate = (v: string) => (v ? v : undefined);
 const optStr = (v: string) => (v.trim() ? v.trim() : undefined);
 const optInt = (v: string) => (v === "" ? undefined : Number(v) || 0);
 
+// Human-readable labels for server-side (422) validation field keys.
+const FIELD_LABELS: Record<string, string> = {
+  toBookingRef: "Booking Ref", tourOperatorId: "Tour Operator", marketId: "Market",
+  resortId: "Resort", hotelId: "Hotel", hotelRoomTypeId: "Room Type",
+  arrivalDate: "Arrival Date", departureDate: "Departure Date", bookingDate: "Booking Date",
+  roomCategory: "Room Occupancy", mealBasis: "Meal Basis", paymentMethod: "Payment Method",
+  hotelStatus: "Hotel Status", toStatus: "TO Status", numRooms: "No. of Rooms",
+  bookingCurrency: "Booking Currency", fileNumber: "File Number",
+};
+const fieldLabel = (k: string) => FIELD_LABELS[k] ?? k;
+
 function calcAge(dob: string, arrivalDate: string): number | null {
   if (!dob || !arrivalDate) return null;
   const d = new Date(dob); const a = new Date(arrivalDate);
@@ -357,6 +368,11 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
     });
   }
 
+  // Total adults implied by each room's occupancy (SGL=1, DBL=2, TPL=3, …).
+  function syncAdults(cats: string[]) {
+    set("adults", String(cats.reduce((s, c) => s + catToPax(c), 0)));
+  }
+
   function onNumRoomsChange(v: string) {
     set("numRooms", v);
     const n = Math.max(1, parseInt(v) || 1);
@@ -365,6 +381,7 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
     const trimmed = next.slice(0, n);
     setRoomCats(trimmed);
     syncGuests(trimmed);
+    syncAdults(trimmed);
   }
 
   function onRoomCatChange(idx: number, cat: string) {
@@ -372,6 +389,7 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
     next[idx] = cat;
     setRoomCats(next);
     syncGuests(next);
+    syncAdults(next);
   }
 
   // ── Cost Calculation modal ──────────────────────────────────────────────────
@@ -505,6 +523,15 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
         setPendingOverride(payload);
         return;
       }
+      // Surface the specific field(s) that failed server-side validation (422)
+      // instead of the opaque "Validation failed" envelope message.
+      if (err instanceof ApiError && err.status === 422 && (err.details as any)?.fieldErrors) {
+        const fe = (err.details as any).fieldErrors as Record<string, string[]>;
+        const formErrs = ((err.details as any).formErrors as string[] | undefined) ?? [];
+        const parts = Object.entries(fe).map(([k, v]) => `${fieldLabel(k)}: ${(v ?? []).join(", ")}`);
+        setError([...formErrs, ...parts].join(" · ") || "Validation failed.");
+        return;
+      }
       setError(err instanceof ApiError ? err.message : "Failed to save booking.");
     } finally {
       setSaving(false);
@@ -515,11 +542,13 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
     e.preventDefault();
     setError(null);
     const missing = [
+      !form.toBookingRef.trim() && "Booking Ref",
       !form.resortId && "Resort",
       !form.hotelId && "Hotel",
       !form.hotelRoomTypeId && "Room Type",
       !form.tourOperatorId && "Tour Operator",
       !form.marketId && "Market",
+      !form.paymentMethod && "Payment Method",
     ].filter(Boolean);
     if (missing.length) {
       setError(`Required: ${missing.join(", ")}`);
