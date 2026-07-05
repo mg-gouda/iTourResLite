@@ -26,6 +26,8 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge, statusVariant } from "@/components/ui/badge";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
+import { ExportButtons } from "@/components/export-buttons";
+import type { ExportSpec } from "@/lib/export";
 
 interface BookingListItem {
   id: string;
@@ -234,31 +236,40 @@ export default function BookingsPage() {
     setPage(1);
   }
 
+  function buildExport(): ExportSpec {
+    return {
+      title: "Bookings",
+      filename: `bookings-page-${page}`,
+      columns: ["Ref", "Hotel", "Room Type", "Arrival", "Departure", "Nights", "Rooms", "Status", "Selling EUR", "P/L EUR"],
+      aligns: ["left", "left", "left", "left", "left", "right", "right", "left", "right", "right"],
+      rows: (query.data?.data ?? []).map((b) => {
+        const n = calcNights(b.arrivalDate, b.departureDate);
+        return [
+          b.toBookingRef,
+          b.hotel?.name ?? "",
+          b.hotelRoomType?.name ?? "",
+          fmtDate(b.arrivalDate),
+          fmtDate(b.departureDate),
+          n,
+          b.numRooms,
+          b.hotelStatus,
+          b.sellingEur,
+          b.plEur ?? "",
+        ];
+      }),
+    };
+  }
+
   function exportCsv() {
-    const rows = query.data?.data ?? [];
-    if (rows.length === 0) return;
-    const header = ["Ref", "Hotel", "Room Type", "Arrival", "Departure", "Nights", "Rooms", "Status", "Selling EUR", "P/L EUR"];
-    const lines = rows.map((b) => {
-      const n = calcNights(b.arrivalDate, b.departureDate);
-      return [
-        b.toBookingRef,
-        b.hotel?.name ?? "",
-        b.hotelRoomType?.name ?? "",
-        fmtDate(b.arrivalDate),
-        fmtDate(b.departureDate),
-        n,
-        b.numRooms,
-        b.hotelStatus,
-        b.sellingEur,
-        b.plEur ?? "",
-      ].map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",");
-    });
-    const csv = [header.join(","), ...lines].join("\n");
+    const spec = buildExport();
+    if (spec.rows.length === 0) return;
+    const lines = spec.rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
+    const csv = [spec.columns.join(","), ...lines].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `bookings-page-${page}.csv`;
+    a.download = `${spec.filename}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -285,6 +296,7 @@ export default function BookingsPage() {
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!data?.data.length}>
               <Download className="size-4" /> Export CSV
             </Button>
+            <ExportButtons build={buildExport} disabled={!data?.data.length} />
             {canCreate && (
               <Button size="sm" onClick={() => router.push("/bookings/new")}>
                 <Plus className="size-4" /> New booking

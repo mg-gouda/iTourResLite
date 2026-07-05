@@ -47,6 +47,34 @@ export function round2(x: number): number {
   return Math.round((x + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * The booking's single "own currency" P/L, used to decide profit/loss when a
+ * booking carries figures in more than one currency. Picks the P/L of
+ * `bookingCurrency` (GBP folded into USD, matching the cost-field mapping); if
+ * that currency has no figures, falls back to whichever currency does.
+ * Returns the P/L number, or `null` when the booking has no financial figures.
+ */
+export function effectivePl(b: {
+  bookingCurrency?: string | null;
+  costUsd: number | string; sellingUsd: number | string;
+  costEur: number | string; sellingEur: number | string;
+  costEgp: number | string; sellingEgp: number | string;
+  visaHandling: number | string;
+}): number | null {
+  const byCur: Record<"USD" | "EUR" | "EGP", { pl: number; has: boolean }> = {
+    USD: { pl: plUsd(b.costUsd, b.sellingUsd), has: n(b.costUsd) !== 0 || n(b.sellingUsd) !== 0 },
+    EUR: { pl: plEur(b.costEur, b.sellingEur, b.visaHandling), has: n(b.costEur) !== 0 || n(b.sellingEur) !== 0 },
+    EGP: { pl: plEgp(b.costEgp, b.sellingEgp), has: n(b.costEgp) !== 0 || n(b.sellingEgp) !== 0 },
+  };
+  const cur = (b.bookingCurrency ?? "").toUpperCase();
+  const primary = cur === "GBP" ? "USD" : (["USD", "EUR", "EGP"] as const).find((c) => c === cur);
+  if (primary && byCur[primary].has) return byCur[primary].pl;
+  const fallback = (["USD", "EUR", "EGP"] as const).find((c) => byCur[c].has);
+  if (fallback) return byCur[fallback].pl;
+  if (primary) return byCur[primary].pl; // currency chosen but zero figures → 0
+  return null;
+}
+
 export interface DerivedBookingFields {
   nights: number;
   plUsd: number;

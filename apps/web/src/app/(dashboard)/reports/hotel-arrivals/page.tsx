@@ -16,6 +16,8 @@ import { AsyncCombobox } from "@/components/ui/async-combobox";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge, statusVariant } from "@/components/ui/badge";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
+import { ExportButtons } from "@/components/export-buttons";
+import type { ExportSpec } from "@/lib/export";
 
 export default function HotelArrivalsPage() {
   const lookups = useLookups();
@@ -36,24 +38,33 @@ export default function HotelArrivalsPage() {
     enabled: !!(from || to || hotelId || status),
   });
 
+  function buildExport(): ExportSpec {
+    return {
+      title: "Hotel Arrival List",
+      filename: "hotel-arrivals",
+      columns: ["Ref", "Hotel", "Room Type", "Arr Date", "Dep Date", "Nts", "Rooms", "Adults", "CHD", "INF", "Market", "Arrival Flight No.", "Arrival Flight Time", "Status", "Guest Names"],
+      aligns: ["left", "left", "left", "left", "left", "right", "right", "right", "right", "right", "left", "left", "left", "left", "left"],
+      rows: (query.data ?? []).map((b) => [
+        b.toBookingRef,
+        b.hotel?.name ?? "",
+        b.hotelRoomType?.name ?? "",
+        fmtDate(b.arrivalDate),
+        fmtDate(b.departureDate),
+        calcNights(b.arrivalDate, b.departureDate),
+        b.numRooms, b.adults, b.children, b.infants,
+        b.market?.code ?? "",
+        b.arrFlightNo ?? "",
+        b.arrFlightTime ?? "",
+        b.hotelStatus ?? "",
+        b.guestNames ?? "",
+      ]),
+    };
+  }
+
   function exportCsv() {
-    const rows = query.data ?? [];
-    const header = ["Ref", "Hotel", "Room Type", "Arr Date", "Dep Date", "Nts", "Rooms", "Adults", "CHD", "INF", "Market", "Arrival Flight No.", "Arrival Flight Time", "Status", "Guest Names"];
-    const lines = rows.map((b) => [
-      b.toBookingRef,
-      b.hotel?.name ?? "",
-      b.hotelRoomType?.name ?? "",
-      fmtDate(b.arrivalDate),
-      fmtDate(b.departureDate),
-      calcNights(b.arrivalDate, b.departureDate),
-      b.numRooms, b.adults, b.children, b.infants,
-      b.market?.code ?? "",
-      b.arrFlightNo ?? "",
-      b.arrFlightTime ?? "",
-      b.hotelStatus ?? "",
-      b.guestNames ?? "",
-    ].map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
-    const csv = [header.join(","), ...lines].join("\n");
+    const spec = buildExport();
+    const lines = spec.rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
+    const csv = [spec.columns.join(","), ...lines].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "hotel-arrivals.csv" });
     a.click();
@@ -63,7 +74,12 @@ export default function HotelArrivalsPage() {
   return (
     <div>
       <PageHeader title="Hotel Arrival List" description="Arrivals filtered by date range."
-        actions={<Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>} />
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
+            <ExportButtons build={buildExport} disabled={!query.data?.length} />
+          </>
+        } />
       <Card className="mb-4">
         <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4 lg:grid-cols-5">
           <Field label="Arrival From"><DateInput value={from} onChange={setFrom} /></Field>

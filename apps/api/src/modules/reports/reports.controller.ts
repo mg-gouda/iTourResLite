@@ -12,6 +12,7 @@ const dateRange = z.object({
   marketId:       z.string().optional(),
   resortId:       z.string().optional(),
   status:         zBookingStatus.optional(),
+  paid:           z.enum(["paid", "unpaid"]).optional(),
 });
 type DateRange = z.infer<typeof dateRange>;
 
@@ -100,12 +101,47 @@ export class ReportsController {
       orderBy: { arrivalDate: "asc" },
       select: {
         id: true, toBookingRef: true, arrivalDate: true, departureDate: true,
-        hotelStatus: true, numRooms: true,
+        hotelStatus: true, numRooms: true, bookingCurrency: true,
         costUsd: true, sellingUsd: true,
         costEur: true, sellingEur: true, visaHandling: true,
         costEgp: true, sellingEgp: true,
         ebdPercent: true, ebdPaymentDate: true,
         paymentMethod: true, paymentOptionDate: true,
+        hotel: { select: { id: true, name: true } },
+        tourOperator: { select: { id: true, code: true, name: true } },
+      },
+    });
+  }
+
+  /**
+   * Hotel Payment Report — cost & payment status per booking, filtered by the
+   * server-captured paid date. Filters: paid-date range, hotel, paid/unpaid,
+   * hotel booking status.
+   */
+  @Get("hotel-payment")
+  hotelPayment(@Query(new ZodValidationPipe(dateRange)) q: DateRange) {
+    const where: any = { deletedAt: null };
+    if (q.hotelId)        where.hotelId = q.hotelId;
+    if (q.tourOperatorId) where.tourOperatorId = q.tourOperatorId;
+    if (q.marketId)       where.marketId = q.marketId;
+    if (q.resortId)       where.resortId = q.resortId;
+    if (q.status)         where.hotelStatus = q.status;
+    if (q.paid === "paid")   where.bookingPaid = true;
+    if (q.paid === "unpaid") where.bookingPaid = false;
+    // Payment-date range only constrains paid bookings (unpaid have no paidDate).
+    if ((q.from || q.to) && q.paid !== "unpaid") {
+      where.paidDate = {};
+      if (q.from) where.paidDate.gte = q.from;
+      if (q.to)   where.paidDate.lte = q.to;
+    }
+    return this.prisma.booking.findMany({
+      where,
+      orderBy: [{ paidDate: "desc" }, { arrivalDate: "asc" }],
+      select: {
+        id: true, toBookingRef: true, hotelStatus: true, bookingCurrency: true,
+        costUsd: true, costEur: true, costEgp: true,
+        paymentOptionDate: true, bookingPaid: true, paidDate: true,
+        paymentProofName: true,
         hotel: { select: { id: true, name: true } },
         tourOperator: { select: { id: true, code: true, name: true } },
       },

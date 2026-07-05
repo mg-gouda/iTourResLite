@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { AsyncCombobox } from "@/components/ui/async-combobox";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
+import { ExportButtons } from "@/components/export-buttons";
+import type { ExportSpec } from "@/lib/export";
 
 export default function EbdListPage() {
   const [from, setFrom] = useState("");
@@ -28,21 +30,30 @@ export default function EbdListPage() {
     enabled: !!(from || to || hotelId),
   });
 
+  function buildExport(): ExportSpec {
+    return {
+      title: "EBD List",
+      filename: "ebd-list",
+      columns: ["Ref", "Hotel", "Room Type", "Arr Date", "Status", "Rooms", "EBD%", "Cost USD", "EBD USD", "Cost EUR", "EBD EUR", "Cost EGP", "EBD EGP", "EBD Pay Date"],
+      aligns: ["left", "left", "left", "left", "left", "left", "right", "right", "right", "right", "right", "right", "right", "left"],
+      rows: (query.data ?? []).map((b) => {
+        const pct = Number(b.ebdPercent);
+        return [
+          b.toBookingRef, b.hotel?.name, b.hotelRoomType?.name, fmtDate(b.arrivalDate),
+          b.hotelStatus, b.numRooms, (pct * 100).toFixed(1) + "%",
+          Number(b.costUsd), ebdAmountUsd(pct, b.costUsd),
+          Number(b.costEur), ebdAmountEur(pct, b.costEur),
+          Number(b.costEgp), ebdAmountEgp(pct, b.costEgp),
+          fmtDate(b.ebdPaymentDate),
+        ];
+      }),
+    };
+  }
+
   function exportCsv() {
-    const rows = query.data ?? [];
-    const header = ["Ref", "Hotel", "Room Type", "Arr Date", "Status", "Rooms", "EBD%", "Cost USD", "EBD USD", "Cost EUR", "EBD EUR", "Cost EGP", "EBD EGP", "EBD Pay Date"];
-    const lines = rows.map((b) => {
-      const pct = Number(b.ebdPercent);
-      return [
-        b.toBookingRef, b.hotel?.name, b.hotelRoomType?.name, fmtDate(b.arrivalDate),
-        b.hotelStatus, b.numRooms, (pct * 100).toFixed(1) + "%",
-        Number(b.costUsd), ebdAmountUsd(pct, b.costUsd),
-        Number(b.costEur), ebdAmountEur(pct, b.costEur),
-        Number(b.costEgp), ebdAmountEgp(pct, b.costEgp),
-        fmtDate(b.ebdPaymentDate),
-      ].map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",");
-    });
-    const csv = [header.join(","), ...lines].join("\n");
+    const spec = buildExport();
+    const lines = spec.rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
+    const csv = [spec.columns.join(","), ...lines].join("\n");
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })),
       download: "ebd-list.csv",
@@ -53,7 +64,12 @@ export default function EbdListPage() {
   return (
     <div>
       <PageHeader title="EBD List" description="Bookings with Early Booking Discount > 0."
-        actions={<Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>} />
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
+            <ExportButtons build={buildExport} disabled={!query.data?.length} />
+          </>
+        } />
       <Card className="mb-4">
         <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
           <Field label="Arrival From"><DateInput value={from} onChange={setFrom} /></Field>

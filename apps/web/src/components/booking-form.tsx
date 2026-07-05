@@ -7,7 +7,7 @@ import { Save, Trash2, Search, ArrowLeft, Mail, Plus, X, AlertTriangle, Sparkles
 import {
   nights as calcNights, plUsd, plEur, plEgp, ebdAmountUsd, ebdAmountEur, ebdAmountEgp,
   formatMoney,
-  ACCOUNTANT_EDITABLE_FIELDS, canDeleteBooking,
+  ACCOUNTANT_EDITABLE_FIELDS, canDeleteBooking, canEditPayment,
   type Role, type RateChangeEntry,
 } from "@itour/shared";
 import { get, post, patch, del, ApiError, API } from "@/lib/api";
@@ -52,6 +52,7 @@ const EMPTY: S = {
   visaHandling: "0", arrFlightNo: "", arrFlightTime: "", depFlightNo: "", depFlightTime: "",
   meetAssistVisa: "", remarks: "", hotelRemarks: "", ebdPercent: "", ebdPaymentDate: "",
   hasEbd: "false", hasSpo: "false", sejourSpoCode: "", spoDate: "",
+  bookingPaid: "false",
 };
 
 const TITLES = ["Mr", "Mrs", "Ms", "Miss", "Mstr", "Dr"];
@@ -142,6 +143,7 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
   const role = (user?.role ?? "VIEWER") as Role;
   const isAccountant = role === "ACCOUNTANT";
   const isViewer = role === "VIEWER";
+  const canPay = canEditPayment(role); // Accountant / Manager / Admin
   const lookups = useLookups();
 
   const [form, setForm] = useState<S>(EMPTY);
@@ -153,6 +155,9 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
   const [internalRef, setInternalRef] = useState<string | null>(null);
   const [guestList, setGuestList] = useState<GuestRow[]>([]);
   const [spoDocumentName, setSpoDocumentName] = useState<string | null>(null);
+  const [paymentProofName, setPaymentProofName] = useState<string | null>(null);
+  const [paidDate, setPaidDate] = useState<string | null>(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [stopSaleConflict, setStopSaleConflict] = useState<{ conflicts: { id: string; fromDate: string; toDate: string; qty: number; roomTypeName: string | null }[] } | null>(null);
   const [pendingOverride, setPendingOverride] = useState<Record<string, unknown> | null>(null);
@@ -213,12 +218,15 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
       hasEbd: (b.ebdPercent && Number(b.ebdPercent) > 0) ? "true" : "false",
       hasSpo: b.hasSpo ? "true" : "false", sejourSpoCode: b.sejourSpoCode ?? "",
       spoDate: b.spoDate?.slice(0, 10) ?? "",
+      bookingPaid: b.bookingPaid ? "true" : "false",
     });
     // Restore per-room categories
     const n = b.numRooms ?? 1;
     const parsedCats: string[] | null = b.roomCatsJson ? (() => { try { return JSON.parse(b.roomCatsJson); } catch { return null; } })() : null;
     setRoomCats(Array.isArray(parsedCats) && parsedCats.length === n ? parsedCats : Array.from({ length: n }, () => b.roomCategory || "DBL"));
     setSpoDocumentName(b.spoDocumentName ?? null);
+    setPaymentProofName(b.paymentProofName ?? null);
+    setPaidDate(b.paidDate ?? null);
     setHotelLabel(b.hotel?.name ?? "");
     // Parse rate change history
     try {
@@ -297,6 +305,38 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
       notify(false, err.message ?? "Upload failed — please try again.");
     } finally {
       setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function onProofFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !bookingId) return;
+
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    const allowed = [".pdf", ".jpeg", ".jpg", ".bmp", ".png"];
+    if (!allowed.includes(ext)) {
+      notify(false, `File type "${ext}" is not allowed. Accepted: ${allowed.join(", ")}`);
+      e.target.value = "";
+      return;
+    }
+
+    setUploadingProof(true);
+    setUploadStatus(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/${bookingId}/upload-payment-proof`, {
+        method: "POST", body: fd, credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message ?? `Server error (${res.status})`);
+      setPaymentProofName(data.name);
+      notify(true, `"${data.name}" uploaded successfully.`);
+    } catch (err: any) {
+      notify(false, err.message ?? "Upload failed — please try again.");
+    } finally {
+      setUploadingProof(false);
       e.target.value = "";
     }
   }
@@ -498,6 +538,7 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
       hasSpo: form.hasSpo === "true",
       sejourSpoCode: optStr(form.sejourSpoCode),
       spoDate: optDate(form.spoDate),
+      bookingPaid: form.bookingPaid === "true",
       guestList: guestList.filter((g) => g.name.trim()).map((g, i) => ({ title: g.title, name: g.name.trim(), type: g.type, room: g.room ?? 1, sortOrder: i })),
     };
     if (isAccountant && bookingId) {
@@ -1173,6 +1214,63 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
             <Field label="Payment Option Date">
               <DateInput value={form.paymentOptionDate} disabled={dis("paymentOptionDate")} onChange={(v) => set("paymentOptionDate", v)} />
             </Field>
+
+            {/* ── Booking Paid (Accountant / Manager) ── */}
+            <div className="col-span-2 rounded-md border border-border bg-secondary/20 p-3 space-y-2.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.bookingPaid === "true"}
+                  disabled={!canPay}
+                  onChange={(e) => set("bookingPaid", e.target.checked ? "true" : "false")}
+                  className="size-4 rounded border-input accent-primary disabled:opacity-50"
+                />
+                <span className="text-sm font-medium">Booking Paid</span>
+                {form.bookingPaid === "true" && paidDate && (
+                  <span className="text-xs text-muted-foreground">— paid on {paidDate.slice(0, 10)}</span>
+                )}
+              </label>
+              {!canPay && (
+                <p className="text-xs text-muted-foreground">Only Accountant or Manager can update payment status.</p>
+              )}
+
+              {/* Payment proof */}
+              <div className="space-y-1.5">
+                <span className="text-xs font-medium text-muted-foreground">Payment Proof</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  {paymentProofName && (
+                    <a
+                      href={`${process.env.NEXT_PUBLIC_API_URL}/bookings/${bookingId}/payment-proof`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary underline underline-offset-2 hover:text-primary/80"
+                    >
+                      {paymentProofName}
+                    </a>
+                  )}
+                  {canPay && (
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-secondary/60">
+                      {uploadingProof ? (
+                        <Spinner className="size-4" />
+                      ) : (
+                        <span>{paymentProofName ? "Replace file" : "Upload proof"}</span>
+                      )}
+                      <input
+                        type="file"
+                        className="sr-only"
+                        accept=".pdf,.jpeg,.jpg,.bmp,.png"
+                        disabled={!bookingId || uploadingProof}
+                        onChange={onProofFileChange}
+                      />
+                    </label>
+                  )}
+                  {canPay && !bookingId && (
+                    <span className="text-xs text-muted-foreground">Save the booking first to attach a file.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Has EBD checkbox */}
             <label className="col-span-2 flex items-center gap-2 cursor-pointer select-none">
               <input

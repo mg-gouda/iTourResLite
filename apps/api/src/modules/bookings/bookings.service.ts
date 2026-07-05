@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
-  deriveBooking, plUsd, plEur, plEgp, round2, ACCOUNTANT_EDITABLE_FIELDS,
+  deriveBooking, plUsd, plEur, plEgp, round2, ACCOUNTANT_EDITABLE_FIELDS, canEditPayment,
   type BookingQueryDto, type BookingWriteDto, type SessionUser, type RateChangeEntry,
 } from "@itour/shared";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -139,6 +139,14 @@ export class BookingsService {
     if (!overrideStopSale) {
       await this.assertNoStopSaleConflict(dto.hotelId, dto.hotelRoomTypeId as any, dto.arrivalDate, dto.departureDate);
     }
+    // paidDate is server-managed; never trust a client value.
+    delete bookingData.paidDate;
+    if (bookingData.bookingPaid === true && canEditPayment(user.role)) {
+      bookingData.paidDate = new Date();
+    } else {
+      bookingData.bookingPaid = false;
+      bookingData.paidDate = null;
+    }
     const internalRef = await this.generateInternalRef();
     const created = await this.prisma.booking.create({
       data: { ...bookingData, internalRef, createdById: user.id },
@@ -159,7 +167,27 @@ export class BookingsService {
       if (illegal.length) throw new ForbiddenException(`Accountant cannot edit: ${illegal.join(", ")}`);
     }
 
+    // "Booking Paid" is reserved for Accountant/Manager/Admin. Other roles (e.g.
+    // AGENT) may edit everything else and their save still carries the unchanged
+    // bookingPaid value — only reject an actual *change* to payment status.
+    const attemptsPaidChange =
+      "bookingPaid" in (dto as any) && (dto as any).bookingPaid !== existing.bookingPaid;
+    if (attemptsPaidChange && !canEditPayment(user.role)) {
+      throw new ForbiddenException("Only Accountant or Manager can change payment status.");
+    }
+
     const { guestList, overrideStopSale, ...bookingData } = dto as any;
+
+    // paidDate is captured server-side the moment bookingPaid flips false→true,
+    // and cleared when unchecked. Never accept a client-supplied paidDate.
+    delete bookingData.paidDate;
+    if (!canEditPayment(user.role)) {
+      // Non-payment roles cannot alter paid state; drop the (unchanged) field.
+      delete bookingData.bookingPaid;
+    } else if ("bookingPaid" in bookingData) {
+      if (bookingData.bookingPaid && !existing.bookingPaid) bookingData.paidDate = new Date();
+      else if (!bookingData.bookingPaid) bookingData.paidDate = null;
+    }
 
     // Only re-check if hotel/roomType/dates are being changed
     const hotelId        = (bookingData.hotelId         ?? existing.hotelId)        as string;

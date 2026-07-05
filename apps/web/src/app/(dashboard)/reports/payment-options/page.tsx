@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
+import { ExportButtons } from "@/components/export-buttons";
+import type { ExportSpec } from "@/lib/export";
 
 export default function PaymentOptionsPage() {
   const lookups = useLookups();
@@ -31,18 +33,27 @@ export default function PaymentOptionsPage() {
     enabled: !!(from || to || tourOperatorId || status),
   });
 
+  function buildExport(): ExportSpec {
+    return {
+      title: "Payment Option Report",
+      filename: "payment-options",
+      columns: ["Ref", "Hotel", "Arr Date", "Status", "Rooms", "Pay Method", "Payment Option Date", "Currency", "Cost USD", "Sell USD", "Cost EUR", "Sell EUR", "Cost EGP", "Sell EGP"],
+      aligns: ["left", "left", "left", "left", "left", "left", "left", "left", "right", "right", "right", "right", "right", "right"],
+      rows: (query.data ?? []).map((b) => [
+        b.toBookingRef, b.hotel?.name, fmtDate(b.arrivalDate),
+        b.hotelStatus, b.numRooms, b.paymentMethod,
+        fmtDate(b.paymentOptionDate), b.bookingCurrency ?? "",
+        Number(b.costUsd), Number(b.sellingUsd),
+        Number(b.costEur), Number(b.sellingEur),
+        Number(b.costEgp), Number(b.sellingEgp),
+      ]),
+    };
+  }
+
   function exportCsv() {
-    const rows = query.data ?? [];
-    const header = ["Ref", "Hotel", "Arr Date", "Status", "Rooms", "Pay Method", "Payment Option Date", "Currency", "Cost USD", "Sell USD", "Cost EUR", "Sell EUR", "Cost EGP", "Sell EGP"];
-    const lines = rows.map((b) => [
-      b.toBookingRef, b.hotel?.name, fmtDate(b.arrivalDate),
-      b.hotelStatus, b.numRooms, b.paymentMethod,
-      fmtDate(b.paymentOptionDate), b.bookingCurrency ?? "",
-      Number(b.costUsd), Number(b.sellingUsd),
-      Number(b.costEur), Number(b.sellingEur),
-      Number(b.costEgp), Number(b.sellingEgp),
-    ].map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
-    const csv = [header.join(","), ...lines].join("\n");
+    const spec = buildExport();
+    const lines = spec.rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
+    const csv = [spec.columns.join(","), ...lines].join("\n");
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })),
       download: "payment-options.csv",
@@ -53,7 +64,12 @@ export default function PaymentOptionsPage() {
   return (
     <div>
       <PageHeader title="Payment Option Report" description="Bookings with upcoming payment option dates."
-        actions={<Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>} />
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
+            <ExportButtons build={buildExport} disabled={!query.data?.length} />
+          </>
+        } />
       <Card className="mb-4">
         <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
           <Field label="Payment Option From"><DateInput value={from} onChange={setFrom} /></Field>

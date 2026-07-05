@@ -21,6 +21,7 @@ export const ACCOUNTANT_EDITABLE_FIELDS = [
   "costEgp", "sellingEgp", "calculationEgp",
   "paymentMethod", "paymentOptionDate", "visaHandling", "accountingRemarks",
   "ebdPercent", "ebdPaymentDate",
+  "bookingPaid",
 ] as const;
 
 export type AccountantField = (typeof ACCOUNTANT_EDITABLE_FIELDS)[number];
@@ -31,4 +32,13 @@ export function canEditBooking(role: Role): boolean {
 
 export function canDeleteBooking(role: Role): boolean {
   return role === "ADMIN" || role === "MANAGER";
+}
+
+/**
+ * Who may set "Booking Paid" and upload the payment proof: Accountant &
+ * Manager (Admin as superuser). Agents create bookings but do not handle
+ * payment; Viewers are read-only. Enforced in the web UI and the API.
+ */
+export function canEditPayment(role: Role): boolean {
+  return role === "ADMIN" || role === "MANAGER" || role === "ACCOUNTANT";
 }

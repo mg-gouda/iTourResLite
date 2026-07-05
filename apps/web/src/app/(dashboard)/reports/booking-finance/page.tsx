@@ -3,19 +3,28 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
-import { formatMoney, fmtDate, plUsd, plEur, plEgp } from "@itour/shared";
+import { formatMoney, fmtDate, plUsd, plEur, plEgp, effectivePl } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { useLookups, lookupToOptions, fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { AsyncCombobox } from "@/components/ui/async-combobox";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
+import { ExportButtons } from "@/components/export-buttons";
+import type { ExportSpec } from "@/lib/export";
+
+// Highlight a loss-making booking: light red background + dark red text
+// (mirrors the CXL danger styling), themed for light and dark mode.
+const LOSS_ROW = "bg-red-500/10 text-red-700 dark:bg-red-500/15 dark:text-red-300";
+const isLoss = (b: any) => {
+  const p = effectivePl(b);
+  return p != null && p < 0;
+};
 
 export default function BookingFinancePage() {
   const lookups = useLookups();
@@ -24,16 +33,20 @@ export default function BookingFinancePage() {
   const [hotelId, setHotelId] = useState("");
   const [hotelLabel, setHotelLabel] = useState("");
   const [tourOperatorId, setTourOperatorId] = useState("");
+  const [status, setStatus] = useState("");
+  const [plFilter, setPlFilter] = useState(""); // "" = all, "neg" = below zero
   const toOpts = lookupToOptions(lookups.data?.tourOperators);
-  const filters = { from, to, hotelId, tourOperatorId };
+  const statusOpts = lookups.data?.bookingStatuses ?? [];
+  const filters = { from, to, hotelId, tourOperatorId, status };
 
   const query = useQuery({
     queryKey: ["report-booking-finance", filters],
     queryFn: () => get<any[]>(`/reports/booking-finance${qs(filters)}`),
-    enabled: !!(from || to || hotelId),
+    enabled: !!(from || to || hotelId || status),
   });
 
-  const rows = query.data ?? [];
+  const allRows = query.data ?? [];
+  const rows = plFilter === "neg" ? allRows.filter(isLoss) : allRows;
   const totals = rows.reduce((acc, b) => ({
     costUsd: acc.costUsd + Number(b.costUsd),
     sellingUsd: acc.sellingUsd + Number(b.sellingUsd),
@@ -44,18 +57,30 @@ export default function BookingFinancePage() {
     sellingEgp: acc.sellingEgp + Number(b.sellingEgp),
   }), { costUsd: 0, sellingUsd: 0, costEur: 0, sellingEur: 0, visaHandling: 0, costEgp: 0, sellingEgp: 0 });
 
+  const EXPORT_COLS = ["Ref", "Hotel", "Arr Date", "Dep Date", "Status", "Rooms", "Cost USD", "Sell USD", "P/L USD", "Cost EUR", "Sell EUR", "P/L EUR", "Cost EGP", "Sell EGP", "P/L EGP", "Pay Method"];
+  const EXPORT_ALIGNS = EXPORT_COLS.map((c, i) => (i >= 5 && c !== "Pay Method" ? "right" : "left")) as ("left" | "right")[];
+
+  function buildExport(): ExportSpec {
+    return {
+      title: "Booking Finance Report",
+      filename: "booking-finance",
+      columns: EXPORT_COLS,
+      aligns: EXPORT_ALIGNS,
+      rows: rows.map((b) => [
+        b.toBookingRef, b.hotel?.name ?? "", fmtDate(b.arrivalDate), fmtDate(b.departureDate),
+        b.hotelStatus, b.numRooms,
+        Number(b.costUsd), Number(b.sellingUsd), plUsd(b.costUsd, b.sellingUsd),
+        Number(b.costEur), Number(b.sellingEur), plEur(b.costEur, b.sellingEur, b.visaHandling),
+        Number(b.costEgp), Number(b.sellingEgp), plEgp(b.costEgp, b.sellingEgp),
+        b.paymentMethod,
+      ]),
+    };
+  }
+
   function exportCsv() {
     if (!rows.length) return;
-    const header = ["Ref", "Hotel", "Arr Date", "Dep Date", "Status", "Rooms", "Cost USD", "Sell USD", "P/L USD", "Cost EUR", "Sell EUR", "P/L EUR", "Cost EGP", "Sell EGP", "P/L EGP", "Pay Method"];
-    const lines = rows.map((b) => [
-      b.toBookingRef, b.hotel?.name, fmtDate(b.arrivalDate), fmtDate(b.departureDate),
-      b.hotelStatus, b.numRooms,
-      Number(b.costUsd), Number(b.sellingUsd), plUsd(b.costUsd, b.sellingUsd),
-      Number(b.costEur), Number(b.sellingEur), plEur(b.costEur, b.sellingEur, b.visaHandling),
-      Number(b.costEgp), Number(b.sellingEgp), plEgp(b.costEgp, b.sellingEgp),
-      b.paymentMethod,
-    ].map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
-    const csv = [header.join(","), ...lines].join("\n");
+    const lines = buildExport().rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
+    const csv = [EXPORT_COLS.join(","), ...lines].join("\n");
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })),
       download: "booking-finance.csv",
@@ -66,9 +91,14 @@ export default function BookingFinancePage() {
   return (
     <div>
       <PageHeader title="Booking Finance Report" description="Cost, selling and P&L per booking."
-        actions={<Button variant="outline" size="sm" onClick={exportCsv} disabled={!rows.length}><Download className="size-4" /> CSV</Button>} />
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={!rows.length}><Download className="size-4" /> CSV</Button>
+            <ExportButtons build={buildExport} disabled={!rows.length} />
+          </>
+        } />
       <Card className="mb-4">
-        <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+        <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-6">
           <Field label="Arrival From"><DateInput value={from} onChange={setFrom} /></Field>
           <Field label="Arrival To"><DateInput value={to} onChange={setTo} /></Field>
           <Field label="Hotel">
@@ -76,6 +106,14 @@ export default function BookingFinancePage() {
               onChange={(v, l) => { setHotelId(v); setHotelLabel(l); }} placeholder="Any hotel" />
           </Field>
           <Field label="Tour Operator"><Combobox options={toOpts} value={tourOperatorId} onChange={setTourOperatorId} placeholder="Any" /></Field>
+          <Field label="Hotel Booking Status">
+            <Combobox options={[{ value: "", label: "Any status" }, ...statusOpts]} value={status} onChange={setStatus} placeholder="Any status" />
+          </Field>
+          <Field label="P/L">
+            <Combobox
+              options={[{ value: "", label: "All bookings" }, { value: "neg", label: "Below zero (loss)" }]}
+              value={plFilter} onChange={setPlFilter} placeholder="All bookings" />
+          </Field>
         </CardContent>
       </Card>
 
@@ -92,8 +130,8 @@ export default function BookingFinancePage() {
 
       <Card>
         <CardContent className="p-0">
-          {!from && !to && !hotelId ? (
-            <EmptyState title="Set a filter" description="Select dates or a hotel to load the finance report." />
+          {!from && !to && !hotelId && !status ? (
+            <EmptyState title="Set a filter" description="Select dates, a hotel or a status to load the finance report." />
           ) : query.isLoading ? <TableSkeleton rows={8} cols={10} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !rows.length ? <EmptyState title="No bookings" />
@@ -111,7 +149,7 @@ export default function BookingFinancePage() {
                 </THead>
                 <TBody>
                   {rows.map((b) => (
-                    <TR key={b.id}>
+                    <TR key={b.id} className={isLoss(b) ? LOSS_ROW : undefined}>
                       <TD className="font-medium">{b.toBookingRef}</TD>
                       <TD className="max-w-[12rem] truncate">{b.hotel?.name}</TD>
                       <TD>{fmtDate(b.arrivalDate)}</TD>

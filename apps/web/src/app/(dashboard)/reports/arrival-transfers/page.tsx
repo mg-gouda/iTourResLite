@@ -15,6 +15,8 @@ import { Combobox } from "@/components/ui/combobox";
 import { AsyncCombobox } from "@/components/ui/async-combobox";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
+import { ExportButtons } from "@/components/export-buttons";
+import type { ExportSpec } from "@/lib/export";
 
 export default function ArrivalTransfersPage() {
   const lookups = useLookups();
@@ -32,16 +34,25 @@ export default function ArrivalTransfersPage() {
     enabled: !!(from || to),
   });
 
+  function buildExport(): ExportSpec {
+    return {
+      title: "Arrival Transfers",
+      filename: "arrival-transfers",
+      columns: ["Ref", "Arr Date", "FLT No", "FLT Time", "Hotel", "AD", "CH", "INF", "T/O", "Guests", "Meet & Visa"],
+      aligns: ["left", "left", "left", "left", "left", "right", "right", "right", "left", "left", "left"],
+      rows: (query.data ?? []).map((b) => [
+        b.toBookingRef, fmtDate(b.arrivalDate),
+        b.arrFlightNo ?? "", b.arrFlightTime ?? "",
+        b.hotel?.name ?? "", b.adults, b.children, b.infants,
+        b.tourOperator?.code ?? "", b.guestNames ?? "", b.meetAssistVisa ?? "",
+      ]),
+    };
+  }
+
   function exportCsv() {
-    const rows = query.data ?? [];
-    const header = ["Ref", "Arr Date", "FLT No", "FLT Time", "Hotel", "AD", "CH", "INF", "T/O", "Guests", "Meet & Visa"];
-    const lines = rows.map((b) => [
-      b.toBookingRef, fmtDate(b.arrivalDate),
-      b.arrFlightNo ?? "", b.arrFlightTime ?? "",
-      b.hotel?.name ?? "", b.adults, b.children, b.infants,
-      b.tourOperator?.code ?? "", b.guestNames ?? "", b.meetAssistVisa ?? "",
-    ].map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
-    const csv = [header.join(","), ...lines].join("\n");
+    const spec = buildExport();
+    const lines = spec.rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
+    const csv = [spec.columns.join(","), ...lines].join("\n");
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })),
       download: "arrival-transfers.csv",
@@ -52,7 +63,12 @@ export default function ArrivalTransfersPage() {
   return (
     <div>
       <PageHeader title="Arrival Transfers" description="Arrivals with flight details — transfers planning."
-        actions={<Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>} />
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
+            <ExportButtons build={buildExport} disabled={!query.data?.length} />
+          </>
+        } />
       <Card className="mb-4">
         <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
           <Field label="Arrival From"><DateInput value={from} onChange={setFrom} /></Field>

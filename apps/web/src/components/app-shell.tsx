@@ -22,6 +22,7 @@ import {
   ClipboardList,
   TrendingUp,
   CreditCard,
+  Wallet,
   Tag,
   Car,
   ShieldCheck,
@@ -67,6 +68,7 @@ const REPORTS: NavItem[] = [
   { href: "/reports/arrival-transfers",   label: "Arrival Transfers",    icon: Car },
   { href: "/reports/departure-transfers", label: "Departure Transfers",  icon: Car },
   { href: "/reports/booking-finance",     label: "Booking Finance",      icon: TrendingUp },
+  { href: "/reports/hotel-payment",       label: "Hotel Payment",        icon: Wallet },
   { href: "/reports/payment-options",     label: "Payment Options",      icon: CreditCard },
   { href: "/reports/ebd-list",            label: "EBD List",             icon: Tag },
 ];

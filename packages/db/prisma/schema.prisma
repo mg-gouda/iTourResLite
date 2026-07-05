@@ -200,6 +200,12 @@ model Booking {
   paymentMethod    String        // PaymentMethodLookup.code
   paymentOptionDate DateTime?
   visaHandling     Decimal       @default(0) @db.Decimal(12, 2)
+  // Finance: marked paid by Accountant/Manager. paidDate captured server-side
+  // the moment bookingPaid flips false→true; cleared when unchecked.
+  bookingPaid      Boolean       @default(false)
+  paidDate         DateTime?
+  paymentProofPath String?
+  paymentProofName String?
   arrFlightNo      String?
   arrFlightTime    String?
   depFlightNo      String?

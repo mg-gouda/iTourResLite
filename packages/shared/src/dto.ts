@@ -65,6 +65,9 @@ export const bookingObject = z.object({
   paymentMethod: zPaymentMethod,
   paymentOptionDate: optDate,
   visaHandling: money.default(0),
+  // Finance: Accountant/Manager mark a booking paid. paidDate is captured
+  // server-side (not accepted from the client).
+  bookingPaid: z.boolean().default(false),
   arrFlightNo: z.string().optional().nullable(),
   arrFlightTime: z.string().optional().nullable(),
   depFlightNo: z.string().optional().nullable(),

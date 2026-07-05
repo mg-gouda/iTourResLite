@@ -1,0 +1,152 @@
+"use client";
+
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Download, ExternalLink } from "lucide-react";
+import { formatMoney, fmtDate } from "@itour/shared";
+import { get, qs, API } from "@/lib/api";
+import { useLookups, fetchHotelOptions } from "@/lib/lookups";
+import { PageHeader } from "@/components/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { DateInput } from "@/components/ui/date-input";
+import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
+import { AsyncCombobox } from "@/components/ui/async-combobox";
+import { Badge } from "@/components/ui/badge";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
+import { ExportButtons } from "@/components/export-buttons";
+import type { ExportSpec } from "@/lib/export";
+
+export default function HotelPaymentPage() {
+  const lookups = useLookups();
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [hotelId, setHotelId] = useState("");
+  const [hotelLabel, setHotelLabel] = useState("");
+  const [status, setStatus] = useState("");
+  const [paid, setPaid] = useState("");
+  const statusOpts = lookups.data?.bookingStatuses ?? [];
+  const filters = { from, to, hotelId, status, paid };
+
+  const query = useQuery({
+    queryKey: ["report-hotel-payment", filters],
+    queryFn: () => get<any[]>(`/reports/hotel-payment${qs(filters)}`),
+    enabled: !!(from || to || hotelId || status || paid),
+  });
+
+  const rows = query.data ?? [];
+
+  const EXPORT_COLS = ["Operator Ref", "Hotel", "Status", "Cost USD", "Cost EUR", "Cost EGP", "Payment Option", "Paid", "Paid Date", "Payment Proof"];
+  const EXPORT_ALIGNS = ["left", "left", "left", "right", "right", "right", "left", "left", "left", "left"] as ("left" | "right")[];
+
+  function buildExport(): ExportSpec {
+    return {
+      title: "Hotel Payment Report",
+      filename: "hotel-payment",
+      columns: EXPORT_COLS,
+      aligns: EXPORT_ALIGNS,
+      rows: rows.map((b) => [
+        b.toBookingRef, b.hotel?.name ?? "", b.hotelStatus,
+        Number(b.costUsd), Number(b.costEur), Number(b.costEgp),
+        fmtDate(b.paymentOptionDate), b.bookingPaid ? "Paid" : "Unpaid",
+        fmtDate(b.paidDate), b.paymentProofName ?? "—",
+      ]),
+    };
+  }
+
+  function exportCsv() {
+    if (!rows.length) return;
+    const lines = buildExport().rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
+    const csv = [EXPORT_COLS.join(","), ...lines].join("\n");
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })),
+      download: "hotel-payment.csv",
+    });
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  return (
+    <div>
+      <PageHeader title="Hotel Payment Report" description="Payment status and proof per booking, by paid date."
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={!rows.length}><Download className="size-4" /> CSV</Button>
+            <ExportButtons build={buildExport} disabled={!rows.length} />
+          </>
+        } />
+      <Card className="mb-4">
+        <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
+          <Field label="Paid From"><DateInput value={from} onChange={setFrom} /></Field>
+          <Field label="Paid To"><DateInput value={to} onChange={setTo} /></Field>
+          <Field label="Hotel">
+            <AsyncCombobox fetcher={fetchHotelOptions} value={hotelId} label={hotelLabel}
+              onChange={(v, l) => { setHotelId(v); setHotelLabel(l); }} placeholder="Any hotel" />
+          </Field>
+          <Field label="Payment">
+            <Combobox
+              options={[{ value: "", label: "All" }, { value: "paid", label: "Paid" }, { value: "unpaid", label: "Unpaid" }]}
+              value={paid} onChange={setPaid} placeholder="All" />
+          </Field>
+          <Field label="Hotel Booking Status">
+            <Combobox options={[{ value: "", label: "Any status" }, ...statusOpts]} value={status} onChange={setStatus} placeholder="Any status" />
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-0">
+          {!from && !to && !hotelId && !status && !paid ? (
+            <EmptyState title="Set a filter" description="Select a paid-date range, hotel, payment status or booking status to load the report." />
+          ) : query.isLoading ? <TableSkeleton rows={8} cols={10} />
+          : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
+          : !rows.length ? <EmptyState title="No bookings" />
+          : (
+            <div className="overflow-x-auto">
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Operator Ref</TH><TH>Hotel</TH><TH>Status</TH>
+                    <TH className="text-right">Cost USD</TH><TH className="text-right">Cost EUR</TH><TH className="text-right">Cost EGP</TH>
+                    <TH>Payment Option</TH><TH>Paid</TH><TH>Paid Date</TH><TH className="text-center">Proof</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {rows.map((b) => (
+                    <TR key={b.id}>
+                      <TD className="font-medium">{b.toBookingRef}</TD>
+                      <TD className="max-w-[12rem] truncate">{b.hotel?.name}</TD>
+                      <TD>{b.hotelStatus}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.costUsd, "USD")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.costEur, "EUR")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.costEgp, "EGP")}</TD>
+                      <TD>{fmtDate(b.paymentOptionDate)}</TD>
+                      <TD><Badge variant={b.bookingPaid ? "success" : "warning"}>{b.bookingPaid ? "Paid" : "Unpaid"}</Badge></TD>
+                      <TD>{fmtDate(b.paidDate)}</TD>
+                      <TD className="text-center">
+                        {b.paymentProofName ? (
+                          <a
+                            href={`${API}/bookings/${b.id}/payment-proof`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`Open ${b.paymentProofName}`}
+                            className="inline-flex items-center justify-center rounded-md border border-input p-1.5 text-primary hover:bg-secondary/60"
+                          >
+                            <ExternalLink className="size-4" />
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

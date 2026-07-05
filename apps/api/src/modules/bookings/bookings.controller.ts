@@ -5,7 +5,7 @@ import { extname, join } from "path";
 import { createReadStream, existsSync, mkdirSync, writeFileSync } from "fs";
 import * as nodemailer from "nodemailer";
 import type { Response } from "express";
-import { nights, bookingQuerySchema, bookingUpdateSchema, bookingWriteSchema, type SessionUser } from "@itour/shared";
+import { nights, bookingQuerySchema, bookingUpdateSchema, bookingWriteSchema, canEditPayment, type SessionUser } from "@itour/shared";
 import { BookingsService } from "./bookings.service";
 import { Roles } from "../../common/roles.decorator";
 import { CurrentUser } from "../../common/current-user.decorator";
@@ -13,6 +13,12 @@ import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const ALLOWED_EXT = new Set([".eml", ".doc", ".docx", ".pdf", ".jpg", ".jpeg", ".png", ".msg"]);
+const PAYMENT_PROOF_EXT = new Set([".pdf", ".jpeg", ".jpg", ".bmp", ".png"]);
+// Content types for serving the payment proof inline (open in a new window).
+const INLINE_MIME: Record<string, string> = {
+  ".pdf": "application/pdf", ".jpeg": "image/jpeg", ".jpg": "image/jpeg",
+  ".bmp": "image/bmp", ".png": "image/png",
+};
 
 @Controller("bookings")
 export class BookingsController {
@@ -496,6 +502,47 @@ ${emailText}`;
     if (!existsSync(b.spoDocumentPath)) { res.status(404).json({ message: "File not found on disk" }); return; }
     res.setHeader("Content-Disposition", `attachment; filename="${b.spoDocumentName ?? b.spoDocumentPath}"`);
     createReadStream(b.spoDocumentPath).pipe(res);
+  }
+
+  // ── Payment proof (Accountant/Manager) — parallels the SPO document flow ──
+  @Post(":id/upload-payment-proof")
+  @Roles("ACCOUNTANT") // rank guard; exact Accountant/Manager/Admin gate below
+  @UseInterceptors(FileInterceptor("file"))
+  async uploadPaymentProof(@Param("id") id: string, @UploadedFile() file: any, @CurrentUser() user: SessionUser) {
+    if (!canEditPayment(user.role)) throw new BadRequestException("Only Accountant or Manager can upload payment proof.");
+    if (!file) throw new BadRequestException("No file provided");
+    const ext = extname(file.originalname).toLowerCase();
+    if (!PAYMENT_PROOF_EXT.has(ext)) throw new BadRequestException(`File type ${ext} not allowed. Accepted: .pdf .jpeg .jpg .bmp .png`);
+    const candidates = [
+      join(process.cwd(), "uploads", "payment-proof"),
+      join(__dirname, "..", "..", "..", "uploads", "payment-proof"),
+      join(__dirname, "..", "..", "..", "..", "apps", "api", "uploads", "payment-proof"),
+    ];
+    let uploadDir = candidates[0];
+    for (const dir of candidates) {
+      try { mkdirSync(dir, { recursive: true }); uploadDir = dir; break; } catch { /* try next */ }
+    }
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    writeFileSync(join(uploadDir, filename), file.buffer);
+    await this.prisma.booking.update({
+      where: { id },
+      data: { paymentProofPath: join(uploadDir, filename), paymentProofName: file.originalname },
+    });
+    return { name: file.originalname };
+  }
+
+  // Served inline (not as an attachment) so the report's icon button can open
+  // the proof directly in a new browser tab.
+  @Get(":id/payment-proof")
+  @Roles("VIEWER")
+  async viewPaymentProof(@Param("id") id: string, @Res() res: Response) {
+    const b = await this.prisma.booking.findFirstOrThrow({ where: { id, deletedAt: null }, select: { paymentProofPath: true, paymentProofName: true } });
+    if (!b.paymentProofPath) { res.status(404).json({ message: "No payment proof" }); return; }
+    if (!existsSync(b.paymentProofPath)) { res.status(404).json({ message: "File not found on disk" }); return; }
+    const ext = extname(b.paymentProofPath).toLowerCase();
+    res.setHeader("Content-Type", INLINE_MIME[ext] ?? "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename="${b.paymentProofName ?? b.paymentProofPath}"`);
+    createReadStream(b.paymentProofPath).pipe(res);
   }
 }
 
