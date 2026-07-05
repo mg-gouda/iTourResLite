@@ -334,7 +334,7 @@ ${emailText}`;
     // HTML email — inline styles for email client compatibility
     const cell = (label: string, value: string) =>
       `<tr>` +
-      `<td style="padding:10px 16px;background:#f3f6fb;font-weight:600;font-size:13px;border-bottom:1px solid #dde3ed;width:40%;vertical-align:top;color:#374151">${label}</td>` +
+      `<td style="padding:10px 16px;background:#f3f6fb;font-weight:600;font-size:13px;border-bottom:1px solid #dde3ed;white-space:nowrap;vertical-align:top;color:#374151">${label}</td>` +
       `<td style="padding:10px 16px;font-size:13px;border-bottom:1px solid #dde3ed;vertical-align:top;color:#111827">${value}</td>` +
       `</tr>`;
 
@@ -363,7 +363,7 @@ ${emailText}`;
       `<p style="margin:0 0 6px;font-size:14px">Greetings from <strong>${companyName}</strong>.</p>` +
       `<p style="margin:0 0 6px;font-size:14px">First of all let me seize this opportunity to thank you for your co-operation &amp; support is always expected.</p>` +
       `<p style="margin:0 0 24px;font-size:14px">${introLine}</p>` +
-      `<table style="width:100%;border-collapse:collapse;border:1px solid #dde3ed;border-radius:6px;overflow:hidden"><tbody>${tableRows}</tbody></table>` +
+      `<table style="width:auto;margin:0;border-collapse:collapse;border:1px solid #dde3ed;border-radius:6px;overflow:hidden"><tbody>${tableRows}</tbody></table>` +
       (hasSpo ? `<p style="margin:16px 0 0;font-size:12px;color:#6b7280;font-style:italic">&#128206; Please find the SPO document &ldquo;${spoName}&rdquo; attached to this email.</p>` : ``) +
       `<p style="margin:32px 0 4px;font-size:14px">Thanks &amp; Best regards,</p>` +
       `<p style="margin:0;font-size:14px;font-weight:700">${companyName}</p>` +
