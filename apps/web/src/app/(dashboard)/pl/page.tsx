@@ -27,6 +27,7 @@ interface PlRow {
   period: string; // yyyy-mm
   plEur: number;
   plUsd: number;
+  plEgp: number;
   sellingEur?: number;
   sellingUsd?: number;
 }
@@ -49,7 +50,7 @@ export default function PlPage() {
     <div>
       <PageHeader
         title="Profit & Loss"
-        description="Monthly P&L in EUR and USD."
+        description="Monthly P&L in EUR, USD and EGP."
         actions={<DateRangeFilter value={range} onChange={setRange} />}
       />
 
@@ -138,14 +139,16 @@ function Body({ rows }: { rows: PlRow[] }) {
               <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="period" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={48} />
+                <YAxis yAxisId="main" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={48} />
+                <YAxis yAxisId="egp" orientation="right" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={56} />
                 <Tooltip
                   contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: number, name) => [formatMoney(v, name === "P/L USD" ? "USD" : "EUR"), name]}
+                  formatter={(v: number, name) => [formatMoney(v, name === "P/L USD" ? "USD" : name === "P/L EGP" ? "EGP" : "EUR"), name]}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="plEur" name="P/L EUR" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                <Line dataKey="plUsd" name="P/L USD" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                <Bar yAxisId="main" dataKey="plEur" name="P/L EUR" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Line yAxisId="main" dataKey="plUsd" name="P/L USD" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                <Line yAxisId="egp" dataKey="plEgp" name="P/L EGP" stroke="#10b981" strokeWidth={2} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -161,6 +164,7 @@ function Body({ rows }: { rows: PlRow[] }) {
                 <TH>Period</TH>
                 <TH className="text-right">P/L EUR</TH>
                 <TH className="text-right">P/L USD</TH>
+                <TH className="text-right">P/L EGP</TH>
               </TR>
             </THead>
             <TBody>
@@ -169,6 +173,7 @@ function Body({ rows }: { rows: PlRow[] }) {
                   <TD className="font-medium">{r.period}</TD>
                   <TD className="text-right tabular-nums">{formatMoney(r.plEur, "EUR")}</TD>
                   <TD className="text-right tabular-nums">{formatMoney(r.plUsd, "USD")}</TD>
+                  <TD className="text-right tabular-nums">{formatMoney(r.plEgp, "EGP")}</TD>
                 </TR>
               ))}
             </TBody>

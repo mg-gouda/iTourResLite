@@ -5,7 +5,11 @@
  */
 const n = (v: number | string | null | undefined): number => {
   if (v === null || v === undefined || v === "") return 0;
-  const x = typeof v === "string" ? parseFloat(v) : v;
+  // Prisma Decimal serializes to a string over JSON (web client) but stays a
+  // Decimal *object* server-side. `Number()` coerces every case (number,
+  // string, Decimal); the old `: v` fell through for Decimal objects, and
+  // `Number.isFinite(object)` is false, so all server-side P/L collapsed to 0.
+  const x = typeof v === "string" ? parseFloat(v) : Number(v);
   return Number.isFinite(x) ? x : 0;
 };
 

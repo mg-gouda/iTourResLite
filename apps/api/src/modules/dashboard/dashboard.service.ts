@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
-  plUsd, plEur, nights, round2,
+  plUsd, plEur, plEgp, nights, round2,
   type DashboardQueryDto, type BreakdownQueryDto,
   type DashboardOverview, type BreakdownRow, type RebookingStats, type RateChangeEntry,
 } from "@itour/shared";
@@ -67,21 +67,23 @@ export class DashboardService {
       select: {
         arrivalDate: true,
         costUsd: true, sellingUsd: true, costEur: true, sellingEur: true, visaHandling: true,
+        costEgp: true, sellingEgp: true,
       },
     });
-    const buckets = new Map<string, { plUsd: number; plEur: number; sellingEur: number; bookings: number }>();
+    const buckets = new Map<string, { plUsd: number; plEur: number; plEgp: number; sellingEur: number; bookings: number }>();
     for (const b of rows) {
       const key = b.arrivalDate.toISOString().slice(0, 7); // yyyy-mm
-      const cur = buckets.get(key) ?? { plUsd: 0, plEur: 0, sellingEur: 0, bookings: 0 };
+      const cur = buckets.get(key) ?? { plUsd: 0, plEur: 0, plEgp: 0, sellingEur: 0, bookings: 0 };
       cur.plUsd += plUsd(b.costUsd as any, b.sellingUsd as any);
       cur.plEur += plEur(b.costEur as any, b.sellingEur as any, b.visaHandling as any);
+      cur.plEgp += plEgp(b.costEgp as any, b.sellingEgp as any);
       cur.sellingEur += Number(b.sellingEur);
       cur.bookings += 1;
       buckets.set(key, cur);
     }
     return [...buckets.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([period, v]) => ({ period, plUsd: round2(v.plUsd), plEur: round2(v.plEur), sellingEur: round2(v.sellingEur), bookings: v.bookings }));
+      .map(([period, v]) => ({ period, plUsd: round2(v.plUsd), plEur: round2(v.plEur), plEgp: round2(v.plEgp), sellingEur: round2(v.sellingEur), bookings: v.bookings }));
   }
 
   async breakdowns(q: BreakdownQueryDto): Promise<BreakdownRow[]> {

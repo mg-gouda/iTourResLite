@@ -20,6 +20,14 @@ describe("booking calculators (legacy workbook values)", () => {
     expect(plEur(1000, 1200, 50)).toBe(250);
   });
 
+  it("coerces Prisma Decimal objects (server-side), not just numbers/strings", () => {
+    // Regression: Prisma returns Decimal *objects* on the API. `n()` used to
+    // fall through to `Number.isFinite(object) === false` → every P/L was 0.
+    const decimal = (s: string) => ({ toString: () => s, valueOf: () => s });
+    expect(plUsd(decimal("1455"), decimal("1516.6"))).toBe(61.6);
+    expect(plEur(decimal("1455"), decimal("1516.6"), decimal("0"))).toBe(61.6);
+  });
+
   it("EBD amounts = percent (fraction) * cost", () => {
     expect(ebdAmountUsd(0.05, 1000)).toBe(50);
     expect(ebdAmountEur(0.27, 940.24)).toBe(253.86);
