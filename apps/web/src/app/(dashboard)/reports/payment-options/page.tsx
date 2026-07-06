@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { formatMoney, fmtDate, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { ReportCurrencyTotals } from "@/components/report-currency-totals";
+import { ClearFiltersButton } from "@/components/clear-filters-button";
 import { useLookups, lookupToOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,6 +36,8 @@ export default function PaymentOptionsPage() {
   });
 
   const rows = query.data ?? [];
+  const hasFilters = !!(from || to || tourOperatorId || status);
+  const clearFilters = () => { setFrom(""); setTo(""); setTourOperatorId(""); setStatus(""); };
   const CUR: [string, string, string][] = [["USD", "costUsd", "sellingUsd"], ["EUR", "costEur", "sellingEur"], ["EGP", "costEgp", "sellingEgp"]];
   const currencyTotals = CUR.map(([cur, c, s]) => ({
     currency: cur,
@@ -77,6 +80,7 @@ export default function PaymentOptionsPage() {
       <PageHeader title="Payment Option Report" description="Bookings with upcoming payment option dates."
         actions={
           <>
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!query.data?.length} />
           </>

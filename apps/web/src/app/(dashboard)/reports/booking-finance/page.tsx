@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { formatMoney, fmtDate, plUsd, plEur, plEgp, effectivePl, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { ReportCurrencyTotals } from "@/components/report-currency-totals";
+import { ClearFiltersButton } from "@/components/clear-filters-button";
 import { useLookups, lookupToOptions, fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,6 +46,9 @@ export default function BookingFinancePage() {
     queryFn: () => get<any[]>(`/reports/booking-finance${qs(filters)}`),
     enabled: !!(from || to || hotelId || status),
   });
+
+  const hasFilters = !!(from || to || hotelId || tourOperatorId || status || plFilter);
+  const clearFilters = () => { setFrom(""); setTo(""); setHotelId(""); setHotelLabel(""); setTourOperatorId(""); setStatus(""); setPlFilter(""); };
 
   const allRows = query.data ?? [];
   const rows = plFilter === "neg" ? allRows.filter(isLoss) : allRows;
@@ -112,6 +116,7 @@ export default function BookingFinancePage() {
       <PageHeader title="Booking Finance Report" description="Cost, selling and P&L per booking."
         actions={
           <>
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!rows.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!rows.length} />
           </>

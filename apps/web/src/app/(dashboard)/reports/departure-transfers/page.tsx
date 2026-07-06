@@ -16,6 +16,7 @@ import { AsyncCombobox } from "@/components/ui/async-combobox";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
 import { ExportButtons } from "@/components/export-buttons";
+import { ClearFiltersButton } from "@/components/clear-filters-button";
 import type { ExportSpec } from "@/lib/export";
 
 export default function DepartureTransfersPage() {
@@ -33,6 +34,9 @@ export default function DepartureTransfersPage() {
     queryFn: () => get<any[]>(`/reports/departure-transfers${qs(filters)}`),
     enabled: !!(from || to),
   });
+
+  const hasFilters = !!(from || to || hotelId || tourOperatorId);
+  const clearFilters = () => { setFrom(""); setTo(""); setHotelId(""); setHotelLabel(""); setTourOperatorId(""); };
 
   function buildExport(): ExportSpec {
     return {
@@ -65,6 +69,7 @@ export default function DepartureTransfersPage() {
       <PageHeader title="Departure Transfers" description="Departures with flight details — transfers planning."
         actions={
           <>
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!query.data?.length} />
           </>

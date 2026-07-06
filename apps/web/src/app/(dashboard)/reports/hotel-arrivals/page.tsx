@@ -17,6 +17,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge, statusVariant } from "@/components/ui/badge";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
 import { ExportButtons } from "@/components/export-buttons";
+import { ClearFiltersButton } from "@/components/clear-filters-button";
 import type { ExportSpec } from "@/lib/export";
 
 export default function HotelArrivalsPage() {
@@ -37,6 +38,9 @@ export default function HotelArrivalsPage() {
     queryFn: () => get<any[]>(`/reports/hotel-arrivals${qs(filters)}`),
     enabled: !!(from || to || hotelId || status),
   });
+
+  const hasFilters = !!(from || to || hotelId || marketId || status);
+  const clearFilters = () => { setFrom(""); setTo(""); setHotelId(""); setHotelLabel(""); setMarketId(""); setStatus(""); };
 
   function buildExport(): ExportSpec {
     return {
@@ -76,6 +80,7 @@ export default function HotelArrivalsPage() {
       <PageHeader title="Hotel Arrival List" description="Arrivals filtered by date range."
         actions={
           <>
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!query.data?.length} />
           </>

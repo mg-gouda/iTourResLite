@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { formatMoney, fmtDate, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { ReportCurrencyTotals } from "@/components/report-currency-totals";
+import { ClearFiltersButton } from "@/components/clear-filters-button";
 import { useLookups, fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,6 +40,9 @@ export default function HotelPaymentPage() {
   });
 
   const rows = query.data ?? [];
+
+  const hasFilters = !!(from || to || hotelId || status || paid || creditNote);
+  const clearFilters = () => { setFrom(""); setTo(""); setHotelId(""); setHotelLabel(""); setStatus(""); setPaid(""); setCreditNote(""); };
 
   const EXPORT_COLS = ["Operator Ref", "Hotel", "Status", "Cost USD", "Cost EUR", "Cost EGP", "Paid", "Balance", "Credit Note", "Payment Option", "Payment", "Paid Date"];
   const EXPORT_ALIGNS = ["left", "left", "left", "right", "right", "right", "right", "right", "right", "left", "left", "left"] as ("left" | "right")[];
@@ -91,6 +95,7 @@ export default function HotelPaymentPage() {
       <PageHeader title="Hotel Payment Report" description="Payment status and proof per booking, by paid date."
         actions={
           <>
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!rows.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!rows.length} />
           </>

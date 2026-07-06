@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { formatMoney, fmtDate, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { ReportCurrencyTotals } from "@/components/report-currency-totals";
+import { ClearFiltersButton } from "@/components/clear-filters-button";
 import { useLookups, lookupToOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,6 +62,9 @@ export default function InvoicesReviewPage() {
 
   const rows = query.data ?? [];
 
+  const hasFilters = !!(from || to || tourOperatorId || status);
+  const clearFilters = () => { setFrom(""); setTo(""); setTourOperatorId(""); setStatus(""); };
+
   const currencyTotals = CUR_FIELDS.map(([cur, c, s]) => ({
     currency: cur,
     rows: [
@@ -108,6 +112,7 @@ export default function InvoicesReviewPage() {
       <PageHeader title="Invoices Review" description="Operator, stay dates, guest and per-currency cost &amp; selling per booking."
         actions={
           <>
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!rows.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!rows.length} />
           </>

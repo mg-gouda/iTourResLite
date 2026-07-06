@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { formatMoney, fmtDate, ebdAmountUsd, ebdAmountEur, ebdAmountEgp, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { ReportCurrencyTotals } from "@/components/report-currency-totals";
+import { ClearFiltersButton } from "@/components/clear-filters-button";
 import { fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,8 @@ export default function EbdListPage() {
   });
 
   const rows = query.data ?? [];
+  const hasFilters = !!(from || to || hotelId);
+  const clearFilters = () => { setFrom(""); setTo(""); setHotelId(""); setHotelLabel(""); };
   const currencyTotals = [
     { currency: "USD", rows: [
       { label: "Cost", value: round2(rows.reduce((a, b) => a + Number(b.costUsd ?? 0), 0)) },
@@ -83,6 +86,7 @@ export default function EbdListPage() {
       <PageHeader title="EBD List" description="Bookings with Early Booking Discount > 0."
         actions={
           <>
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!query.data?.length} />
           </>
