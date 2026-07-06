@@ -81,7 +81,6 @@ export default function PaymentOptionsPage() {
       <PageHeader title="Payment Option Report" description="Bookings with upcoming payment option dates."
         actions={
           <>
-            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!query.data?.length} />
           </>
@@ -92,6 +91,9 @@ export default function PaymentOptionsPage() {
           <Field label="Payment Option To"><DateInput value={to} onChange={setTo} /></Field>
           <Field label="Tour Operator"><Combobox options={toOpts} value={tourOperatorId} onChange={setTourOperatorId} placeholder="Any" /></Field>
           <Field label="Hotel Booking Status"><Combobox options={statusOpts} value={status} onChange={setStatus} placeholder="Any" /></Field>
+          <div className="flex items-end">
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
+          </div>
         </CardContent>
       </Card>
 

@@ -87,7 +87,6 @@ export default function EbdListPage() {
       <PageHeader title="EBD List" description="Bookings with Early Booking Discount > 0."
         actions={
           <>
-            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!query.data?.length} />
           </>
@@ -100,6 +99,9 @@ export default function EbdListPage() {
             <AsyncCombobox fetcher={fetchHotelOptions} value={hotelId} label={hotelLabel}
               onChange={(v, l) => { setHotelId(v); setHotelLabel(l); }} placeholder="Any hotel" />
           </Field>
+          <div className="flex items-end">
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
+          </div>
         </CardContent>
       </Card>
 

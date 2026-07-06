@@ -81,7 +81,6 @@ export default function HotelArrivalsPage() {
       <PageHeader title="Hotel Arrival List" description="Arrivals filtered by date range."
         actions={
           <>
-            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!query.data?.length} />
           </>
@@ -96,6 +95,9 @@ export default function HotelArrivalsPage() {
           </Field>
           <Field label="Market"><Combobox options={marketOpts} value={marketId} onChange={setMarketId} placeholder="Any" /></Field>
           <Field label="Hotel Booking Status"><Combobox options={statusOpts} value={status} onChange={setStatus} placeholder="Any" /></Field>
+          <div className="flex items-end">
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
+          </div>
         </CardContent>
       </Card>
 

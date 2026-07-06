@@ -26,24 +26,26 @@ export default function HotelPaymentPage() {
   const lookups = useLookups();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [arrivalFrom, setArrivalFrom] = useState("");
+  const [arrivalTo, setArrivalTo] = useState("");
   const [hotelId, setHotelId] = useState("");
   const [hotelLabel, setHotelLabel] = useState("");
   const [status, setStatus] = useState("");
   const [paid, setPaid] = useState("");
   const [creditNote, setCreditNote] = useState("");
   const statusOpts = lookups.data?.bookingStatuses ?? [];
-  const filters = { from, to, hotelId, status, paid, creditNote };
+  const filters = { from, to, arrivalFrom, arrivalTo, hotelId, status, paid, creditNote };
 
   const query = useQuery({
     queryKey: ["report-hotel-payment", filters],
     queryFn: () => get<any[]>(`/reports/hotel-payment${qs(filters)}`),
-    enabled: !!(from || to || hotelId || status || paid || creditNote),
+    enabled: !!(from || to || arrivalFrom || arrivalTo || hotelId || status || paid || creditNote),
   });
 
   const rows = query.data ?? [];
 
-  const hasFilters = !!(from || to || hotelId || status || paid || creditNote);
-  const clearFilters = () => { setFrom(""); setTo(""); setHotelId(""); setHotelLabel(""); setStatus(""); setPaid(""); setCreditNote(""); };
+  const hasFilters = !!(from || to || arrivalFrom || arrivalTo || hotelId || status || paid || creditNote);
+  const clearFilters = () => { setFrom(""); setTo(""); setArrivalFrom(""); setArrivalTo(""); setHotelId(""); setHotelLabel(""); setStatus(""); setPaid(""); setCreditNote(""); };
 
   const EXPORT_COLS = ["Operator Ref", "Hotel", "Status", "Cost USD", "Cost EUR", "Cost EGP", "Paid", "Balance", "Credit Note", "Payment Option", "Payment", "Paid Date"];
   const EXPORT_ALIGNS = ["left", "left", "left", "right", "right", "right", "right", "right", "right", "left", "left", "left"] as ("left" | "right")[];
@@ -96,13 +98,14 @@ export default function HotelPaymentPage() {
       <PageHeader title="Hotel Payment Report" description="Payment status and proof per booking, by paid date."
         actions={
           <>
-            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!rows.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!rows.length} />
           </>
         } />
       <Card className="mb-4">
         <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
+          <Field label="Arrival From"><DateInput value={arrivalFrom} onChange={setArrivalFrom} /></Field>
+          <Field label="Arrival To"><DateInput value={arrivalTo} onChange={setArrivalTo} /></Field>
           <Field label="Paid From"><DateInput value={from} onChange={setFrom} /></Field>
           <Field label="Paid To"><DateInput value={to} onChange={setTo} /></Field>
           <Field label="Hotel">
@@ -122,6 +125,9 @@ export default function HotelPaymentPage() {
           <Field label="Hotel Booking Status">
             <Combobox options={[{ value: "", label: "Any status" }, ...statusOpts]} value={status} onChange={setStatus} placeholder="Any status" />
           </Field>
+          <div className="flex items-end">
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
+          </div>
         </CardContent>
       </Card>
 
@@ -130,8 +136,8 @@ export default function HotelPaymentPage() {
 
       <Card>
         <CardContent className="p-0">
-          {!from && !to && !hotelId && !status && !paid && !creditNote ? (
-            <EmptyState title="Set a filter" description="Select a paid-date range, hotel, payment status, credit-note or booking status to load the report." />
+          {!from && !to && !arrivalFrom && !arrivalTo && !hotelId && !status && !paid && !creditNote ? (
+            <EmptyState title="Set a filter" description="Select an arrival- or paid-date range, hotel, payment status, credit-note or booking status to load the report." />
           ) : query.isLoading ? <TableSkeleton rows={8} cols={12} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !rows.length ? <EmptyState title="No bookings" />

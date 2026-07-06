@@ -7,6 +7,8 @@ import { PrismaService } from "../../prisma/prisma.service";
 const dateRange = z.object({
   from: z.coerce.date().optional(),
   to:   z.coerce.date().optional(),
+  arrivalFrom: z.coerce.date().optional(),
+  arrivalTo:   z.coerce.date().optional(),
   hotelId:        z.string().optional(),
   tourOperatorId: z.string().optional(),
   marketId:       z.string().optional(),
@@ -155,6 +157,12 @@ export class ReportsController {
     // Credit-note presence: both variants require at least one credit note; the
     // "remaining" narrowing (still-unredeemed value) is applied after roll-up.
     if (q.creditNote) where.creditNotes = { some: {} };
+    // Arrival-date range narrows by the stay's arrival, independent of paid date.
+    if (q.arrivalFrom || q.arrivalTo) {
+      where.arrivalDate = {};
+      if (q.arrivalFrom) where.arrivalDate.gte = q.arrivalFrom;
+      if (q.arrivalTo)   where.arrivalDate.lte = q.arrivalTo;
+    }
     // Payment-date range only constrains fully-paid bookings (partial/unpaid have
     // no paidDate yet — a deposit alone doesn't set it).
     if ((q.from || q.to) && q.paid !== "unpaid" && q.paid !== "partial") {

@@ -117,7 +117,6 @@ export default function BookingFinancePage() {
       <PageHeader title="Booking Finance Report" description="Cost, selling and P&L per booking."
         actions={
           <>
-            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!rows.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!rows.length} />
           </>
@@ -139,6 +138,9 @@ export default function BookingFinancePage() {
               options={[{ value: "", label: "All bookings" }, { value: "neg", label: "Below zero (loss)" }]}
               value={plFilter} onChange={setPlFilter} placeholder="All bookings" />
           </Field>
+          <div className="flex items-end">
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
+          </div>
         </CardContent>
       </Card>
 

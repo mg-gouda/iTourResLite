@@ -102,7 +102,6 @@ export default function InvoicesReviewPage() {
       <PageHeader title="Invoices Review" description="Operator, stay dates, guest and per-currency cost &amp; selling per booking."
         actions={
           <>
-            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!rows.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!rows.length} />
           </>
@@ -115,6 +114,9 @@ export default function InvoicesReviewPage() {
           <Field label="Hotel Booking Status">
             <Combobox options={[{ value: "", label: "Any status" }, ...statusOpts]} value={status} onChange={setStatus} placeholder="Any status" />
           </Field>
+          <div className="flex items-end">
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
+          </div>
         </CardContent>
       </Card>
 

@@ -70,7 +70,6 @@ export default function DepartureTransfersPage() {
       <PageHeader title="Departure Transfers" description="Departures with flight details — transfers planning."
         actions={
           <>
-            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!query.data?.length}><Download className="size-4" /> CSV</Button>
             <ExportButtons build={buildExport} disabled={!query.data?.length} />
           </>
@@ -84,6 +83,9 @@ export default function DepartureTransfersPage() {
               onChange={(v, l) => { setHotelId(v); setHotelLabel(l); }} placeholder="Any hotel" />
           </Field>
           <Field label="Tour Operator"><Combobox options={toOpts} value={tourOperatorId} onChange={setTourOperatorId} placeholder="Any" /></Field>
+          <div className="flex items-end">
+            <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
+          </div>
         </CardContent>
       </Card>
 

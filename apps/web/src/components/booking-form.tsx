@@ -1238,6 +1238,15 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
             <Field label="Hotel Remarks"><Textarea rows={3} value={form.hotelRemarks} disabled={dis("hotelRemarks")} onChange={(e) => set("hotelRemarks", e.target.value)} /></Field>
           </CardContent>
         </Card>
+
+        {/* Bottom Save — spares the user scrolling back to the header action */}
+        {!isViewer && (
+          <div className="flex justify-end xl:col-span-2">
+            <Button type="submit" size="sm" disabled={saving}>
+              {saving ? <Spinner className="size-4" /> : <Save className="size-4" />} Save Booking
+            </Button>
+          </div>
+        )}
       </div>
     </form>
 
