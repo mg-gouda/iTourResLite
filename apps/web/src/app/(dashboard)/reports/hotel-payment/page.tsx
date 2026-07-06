@@ -27,13 +27,14 @@ export default function HotelPaymentPage() {
   const [hotelLabel, setHotelLabel] = useState("");
   const [status, setStatus] = useState("");
   const [paid, setPaid] = useState("");
+  const [creditNote, setCreditNote] = useState("");
   const statusOpts = lookups.data?.bookingStatuses ?? [];
-  const filters = { from, to, hotelId, status, paid };
+  const filters = { from, to, hotelId, status, paid, creditNote };
 
   const query = useQuery({
     queryKey: ["report-hotel-payment", filters],
     queryFn: () => get<any[]>(`/reports/hotel-payment${qs(filters)}`),
-    enabled: !!(from || to || hotelId || status || paid),
+    enabled: !!(from || to || hotelId || status || paid || creditNote),
   });
 
   const rows = query.data ?? [];
@@ -90,8 +91,13 @@ export default function HotelPaymentPage() {
           </Field>
           <Field label="Payment">
             <Combobox
-              options={[{ value: "", label: "All" }, { value: "paid", label: "Paid" }, { value: "unpaid", label: "Unpaid" }]}
+              options={[{ value: "", label: "All" }, { value: "paid", label: "Paid" }, { value: "partial", label: "Partial" }, { value: "unpaid", label: "Unpaid" }]}
               value={paid} onChange={setPaid} placeholder="All" />
+          </Field>
+          <Field label="Credit Note">
+            <Combobox
+              options={[{ value: "", label: "Any" }, { value: "any", label: "Has credit note" }, { value: "remaining", label: "Has remaining credit" }]}
+              value={creditNote} onChange={setCreditNote} placeholder="Any" />
           </Field>
           <Field label="Hotel Booking Status">
             <Combobox options={[{ value: "", label: "Any status" }, ...statusOpts]} value={status} onChange={setStatus} placeholder="Any status" />
@@ -101,8 +107,8 @@ export default function HotelPaymentPage() {
 
       <Card>
         <CardContent className="p-0">
-          {!from && !to && !hotelId && !status && !paid ? (
-            <EmptyState title="Set a filter" description="Select a paid-date range, hotel, payment status or booking status to load the report." />
+          {!from && !to && !hotelId && !status && !paid && !creditNote ? (
+            <EmptyState title="Set a filter" description="Select a paid-date range, hotel, payment status, credit-note or booking status to load the report." />
           ) : query.isLoading ? <TableSkeleton rows={8} cols={12} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !rows.length ? <EmptyState title="No bookings" />

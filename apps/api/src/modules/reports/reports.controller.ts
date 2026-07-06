@@ -12,7 +12,8 @@ const dateRange = z.object({
   marketId:       z.string().optional(),
   resortId:       z.string().optional(),
   status:         zBookingStatus.optional(),
-  paid:           z.enum(["paid", "unpaid"]).optional(),
+  paid:           z.enum(["paid", "partial", "unpaid"]).optional(),
+  creditNote:     z.enum(["any", "remaining"]).optional(),
 });
 type DateRange = z.infer<typeof dateRange>;
 
@@ -126,11 +127,17 @@ export class ReportsController {
     if (q.marketId)       where.marketId = q.marketId;
     if (q.resortId)       where.resortId = q.resortId;
     if (q.status)         where.hotelStatus = q.status;
-    if (q.paid === "paid")   where.bookingPaid = true;
-    if (q.paid === "unpaid") where.bookingPaid = false;
+    // Payment status: paid = fully settled; partial = some payments but not full;
+    // unpaid = no payments at all. bookingPaid is the derived fully-paid flag.
+    if (q.paid === "paid")    where.bookingPaid = true;
+    if (q.paid === "partial") { where.bookingPaid = false; where.payments = { some: {} }; }
+    if (q.paid === "unpaid")  { where.bookingPaid = false; where.payments = { none: {} }; }
+    // Credit-note presence: both variants require at least one credit note; the
+    // "remaining" narrowing (still-unredeemed value) is applied after roll-up.
+    if (q.creditNote) where.creditNotes = { some: {} };
     // Payment-date range only constrains fully-paid bookings (partial/unpaid have
     // no paidDate yet — a deposit alone doesn't set it).
-    if ((q.from || q.to) && q.paid !== "unpaid") {
+    if ((q.from || q.to) && q.paid !== "unpaid" && q.paid !== "partial") {
       where.paidDate = {};
       if (q.from) where.paidDate.gte = q.from;
       if (q.to)   where.paidDate.lte = q.to;
@@ -156,7 +163,7 @@ export class ReportsController {
     });
 
     // Roll up each booking's payment ledger + credit-note holdings for display.
-    return rows.map((b) => {
+    const mapped = rows.map((b) => {
       const totals = computePaidTotals(b as any, b.payments as any);
       const creditNotes = b.creditNotes.map((cn) => {
         const redeemed = round2(cn.redemptions.reduce((s, r) => s + Number(r.amount), 0));
@@ -178,6 +185,12 @@ export class ReportsController {
         creditNoteRemaining,
       };
     });
+
+    // "Remaining" credit-note filter can only be applied post-roll-up, since
+    // remaining value (amount − redemptions) isn't a stored column.
+    return q.creditNote === "remaining"
+      ? mapped.filter((r) => r.creditNoteRemaining > 0)
+      : mapped;
   }
 
   /** Payment Option Report — bookings with upcoming payment option dates */
