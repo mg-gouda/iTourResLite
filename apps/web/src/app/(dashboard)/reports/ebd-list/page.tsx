@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
-import { formatMoney, fmtDate, ebdAmountUsd, ebdAmountEur, ebdAmountEgp } from "@itour/shared";
+import { formatMoney, fmtDate, ebdAmountUsd, ebdAmountEur, ebdAmountEgp, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
+import { ReportCurrencyTotals } from "@/components/report-currency-totals";
 import { fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +30,22 @@ export default function EbdListPage() {
     queryFn: () => get<any[]>(`/reports/ebd-list${qs(filters)}`),
     enabled: !!(from || to || hotelId),
   });
+
+  const rows = query.data ?? [];
+  const currencyTotals = [
+    { currency: "USD", rows: [
+      { label: "Cost", value: round2(rows.reduce((a, b) => a + Number(b.costUsd ?? 0), 0)) },
+      { label: "EBD", value: round2(rows.reduce((a, b) => a + ebdAmountUsd(Number(b.ebdPercent), b.costUsd), 0)) },
+    ] },
+    { currency: "EUR", rows: [
+      { label: "Cost", value: round2(rows.reduce((a, b) => a + Number(b.costEur ?? 0), 0)) },
+      { label: "EBD", value: round2(rows.reduce((a, b) => a + ebdAmountEur(Number(b.ebdPercent), b.costEur), 0)) },
+    ] },
+    { currency: "EGP", rows: [
+      { label: "Cost", value: round2(rows.reduce((a, b) => a + Number(b.costEgp ?? 0), 0)) },
+      { label: "EBD", value: round2(rows.reduce((a, b) => a + ebdAmountEgp(Number(b.ebdPercent), b.costEgp ?? 0), 0)) },
+    ] },
+  ];
 
   function buildExport(): ExportSpec {
     return {
@@ -80,6 +97,9 @@ export default function EbdListPage() {
           </Field>
         </CardContent>
       </Card>
+
+      {rows.length > 0 && <ReportCurrencyTotals totals={currencyTotals} />}
+
       <Card>
         <CardContent className="p-0">
           {!from && !to && !hotelId ? (

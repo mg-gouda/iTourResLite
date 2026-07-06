@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
-import { formatMoney, fmtDate } from "@itour/shared";
+import { formatMoney, fmtDate, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
+import { ReportCurrencyTotals } from "@/components/report-currency-totals";
 import { useLookups, lookupToOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,6 +61,14 @@ export default function InvoicesReviewPage() {
 
   const rows = query.data ?? [];
 
+  const currencyTotals = CUR_FIELDS.map(([cur, c, s]) => ({
+    currency: cur,
+    rows: [
+      { label: "Cost", value: round2(rows.reduce((a, b) => a + Number(b[c] ?? 0), 0)) },
+      { label: "Selling", value: round2(rows.reduce((a, b) => a + Number(b[s] ?? 0), 0)) },
+    ],
+  }));
+
   const EXPORT_COLS = ["Operator", "Operator Reference", "Hotel Name", "Arrival", "Departure", "Guest Name", "Currencies Cost & Selling"];
   const EXPORT_ALIGNS = ["left", "left", "left", "left", "left", "left", "left"] as ("left" | "right")[];
 
@@ -113,6 +122,8 @@ export default function InvoicesReviewPage() {
           </Field>
         </CardContent>
       </Card>
+
+      {rows.length > 0 && <ReportCurrencyTotals totals={currencyTotals} />}
 
       <Card>
         <CardContent className="p-0">

@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
-import { formatMoney, fmtDate } from "@itour/shared";
+import { formatMoney, fmtDate, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
+import { ReportCurrencyTotals } from "@/components/report-currency-totals";
 import { useLookups, lookupToOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,16 @@ export default function PaymentOptionsPage() {
     queryFn: () => get<any[]>(`/reports/payment-options${qs(filters)}`),
     enabled: !!(from || to || tourOperatorId || status),
   });
+
+  const rows = query.data ?? [];
+  const CUR: [string, string, string][] = [["USD", "costUsd", "sellingUsd"], ["EUR", "costEur", "sellingEur"], ["EGP", "costEgp", "sellingEgp"]];
+  const currencyTotals = CUR.map(([cur, c, s]) => ({
+    currency: cur,
+    rows: [
+      { label: "Cost", value: round2(rows.reduce((a, b) => a + Number(b[c] ?? 0), 0)) },
+      { label: "Selling", value: round2(rows.reduce((a, b) => a + Number(b[s] ?? 0), 0)) },
+    ],
+  }));
 
   function buildExport(): ExportSpec {
     return {
@@ -78,6 +89,9 @@ export default function PaymentOptionsPage() {
           <Field label="Hotel Booking Status"><Combobox options={statusOpts} value={status} onChange={setStatus} placeholder="Any" /></Field>
         </CardContent>
       </Card>
+
+      {rows.length > 0 && <ReportCurrencyTotals totals={currencyTotals} />}
+
       <Card>
         <CardContent className="p-0">
           {!from && !to && !tourOperatorId && !status ? (

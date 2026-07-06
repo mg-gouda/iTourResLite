@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
-import { formatMoney, fmtDate } from "@itour/shared";
+import { formatMoney, fmtDate, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
+import { ReportCurrencyTotals } from "@/components/report-currency-totals";
 import { useLookups, fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,6 +45,19 @@ export default function HotelPaymentPage() {
 
   const payLabel = (b: any) => (b.bookingPaid ? "Paid" : b.paidTotal > 0 ? "Partial" : "Unpaid");
   const cnCurrency = (b: any) => b.creditNotes?.[0]?.currency ?? b.paidCurrency;
+
+  // Per-currency totals: Cost from the fixed columns; Paid/Balance summed by the
+  // booking's own (paid) currency; Credit Note by the note's currency.
+  const COST_FIELD: Record<string, string> = { USD: "costUsd", EUR: "costEur", EGP: "costEgp" };
+  const currencyTotals = ["USD", "EUR", "EGP"].map((cur) => ({
+    currency: cur,
+    rows: [
+      { label: "Cost", value: round2(rows.reduce((a, b) => a + Number(b[COST_FIELD[cur]] ?? 0), 0)) },
+      { label: "Paid", value: round2(rows.reduce((a, b) => a + (b.paidCurrency === cur ? Number(b.paidTotal ?? 0) : 0), 0)) },
+      { label: "Balance", value: round2(rows.reduce((a, b) => a + (b.paidCurrency === cur ? Number(b.balance ?? 0) : 0), 0)) },
+      { label: "Credit Note", value: round2(rows.reduce((a, b) => a + (cnCurrency(b) === cur ? Number(b.creditNoteRemaining ?? 0) : 0), 0)) },
+    ],
+  }));
 
   function buildExport(): ExportSpec {
     return {
@@ -104,6 +118,8 @@ export default function HotelPaymentPage() {
           </Field>
         </CardContent>
       </Card>
+
+      {rows.length > 0 && <ReportCurrencyTotals totals={currencyTotals} />}
 
       <Card>
         <CardContent className="p-0">
