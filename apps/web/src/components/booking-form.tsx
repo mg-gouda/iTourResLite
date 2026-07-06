@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Save, Trash2, Search, ArrowLeft, Mail, Plus, X, AlertTriangle, Sparkles, Calculator, Info, Download } from "lucide-react";
@@ -31,7 +31,12 @@ import { BookingPaymentsSection } from "@/components/booking-payments";
 type S = Record<string, string>;
 
 interface GuestRow { id?: string; title: string; name: string; type: "HOTEL" | "REBOOK"; room: number }
-interface CalcRate { pppnDbl: string; sglRoom: string; pppnTpl: string; chd1: string; chd2: string; nChd1: string; nChd2: string }
+interface CalcRate {
+  pppnDbl: string; sglRoom: string; pppnTpl: string; chd1: string; chd2: string; nChd1: string; nChd2: string;
+  // Period-2 rates, used only when the stay is split across two rate periods.
+  // Child counts (nChd1/nChd2) are shared across periods.
+  pppnDbl2: string; sglRoom2: string; pppnTpl2: string; chd1_2: string; chd2_2: string;
+}
 interface DateSupp { desc: string; date: string; adultRate: string; childRate: string }
 interface StaySupp { desc: string; adultRate: string; childRate: string }
 
@@ -167,6 +172,7 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
   const [aiError, setAiError] = useState<string | null>(null);
   const [roomCats, setRoomCats] = useState<string[]>(["DBL"]);
   const [calcOpen, setCalcOpen] = useState(false);
+  const [splitDate, setSplitDate] = useState<string>(""); // "" = single rate period for the whole stay
   const [calcRates, setCalcRates] = useState<CalcRate[]>([]);
   const [calcResults, setCalcResults] = useState<number[]>([]);
   const [dateSupps, setDateSupps] = useState<DateSupp[]>([]);
@@ -399,20 +405,47 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
     const n = Math.max(1, parseInt(form.numRooms) || 1);
     const nChd1 = num(form.children) >= 1 ? "1" : "0";
     const nChd2 = num(form.children) >= 2 ? "1" : "0";
-    setCalcRates(Array.from({ length: n }, (_, i) => calcRates[i] ?? { pppnDbl: "0", sglRoom: "0", pppnTpl: "0", chd1: "0", chd2: "0", nChd1, nChd2 }));
+    setCalcRates(Array.from({ length: n }, (_, i) => calcRates[i] ?? { pppnDbl: "0", sglRoom: "0", pppnTpl: "0", chd1: "0", chd2: "0", nChd1, nChd2, pppnDbl2: "0", sglRoom2: "0", pppnTpl2: "0", chd1_2: "0", chd2_2: "0" }));
     setCalcResults(Array(n).fill(0));
     setDateSuppResults([]);
     setStaySuppResults([]);
     setCalcOpen(true);
   }
 
+  // Partition the stay across up to two rate periods. Returns whole nights for each.
+  // The split is only applied when splitDate falls strictly between arrival and departure
+  // (ISO YYYY-MM-DD strings compare chronologically), otherwise it's one period of `nights`.
+  function nightsSplit() {
+    const splitActive = !!splitDate && !!form.arrivalDate && !!form.departureDate
+      && splitDate > form.arrivalDate && splitDate < form.departureDate;
+    const n1 = splitActive ? calcNights(form.arrivalDate, splitDate) : derived.nights;
+    const n2 = splitActive ? calcNights(splitDate, form.departureDate) : 0;
+    return { splitActive, n1, n2 };
+  }
+
+  // Cost + human-readable formula for one room, folding in both rate periods when split.
+  function roomCalc(r: CalcRate, i: number, n1: number, n2: number, splitActive: boolean) {
+    const adults = catToPax(roomCats[i] ?? "DBL");
+    const leg = (dbl: string, sgl: string, tpl: string, c1: string, c2: string, nn: number, tag: string) => {
+      const base = num(dbl) + num(sgl) + num(tpl);
+      const total = (base * adults * nn) + (num(c1) * num(r.nChd1) * nn) + (num(c2) * num(r.nChd2) * nn);
+      const parts: string[] = [];
+      if (base > 0) parts.push(`(${base}×${adults}adl×${nn}nts)`);
+      if (num(c1) > 0 && num(r.nChd1) > 0) parts.push(`(${c1}×${r.nChd1}chd1×${nn}nts)`);
+      if (num(c2) > 0 && num(r.nChd2) > 0) parts.push(`(${c2}×${r.nChd2}chd2×${nn}nts)`);
+      const body = parts.join("+");
+      return { total, str: body ? (tag ? `${tag}:${body}` : body) : "" };
+    };
+    const p1 = leg(r.pppnDbl, r.sglRoom, r.pppnTpl, r.chd1, r.chd2, n1, splitActive ? "P1" : "");
+    const p2 = splitActive ? leg(r.pppnDbl2, r.sglRoom2, r.pppnTpl2, r.chd1_2, r.chd2_2, n2, "P2") : { total: 0, str: "" };
+    const total = p1.total + p2.total;
+    const formula = [p1.str, p2.str].filter(Boolean).join(" + ");
+    return { total, formula };
+  }
+
   function calculateCost() {
-    const nights = derived.nights;
-    const results = calcRates.map((r, i) => {
-      const adults = catToPax(roomCats[i] ?? "DBL");
-      const base = num(r.pppnDbl) + num(r.sglRoom) + num(r.pppnTpl);
-      return (base * adults * nights) + (num(r.chd1) * num(r.nChd1) * nights) + (num(r.chd2) * num(r.nChd2) * nights);
-    });
+    const { splitActive, n1, n2 } = nightsSplit();
+    const results = calcRates.map((r, i) => roomCalc(r, i, n1, n2, splitActive).total);
     setCalcResults(results);
     const totalAdults = roomCats.reduce((s, cat) => s + catToPax(cat), 0);
     const totalChd = calcRates.reduce((s, r) => s + num(r.nChd1) + num(r.nChd2), 0);
@@ -421,15 +454,12 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
   }
 
   function applyCalcTotal() {
-    const nights = derived.nights;
+    const { splitActive, n1, n2 } = nightsSplit();
     const totalAdults = roomCats.reduce((s, cat) => s + catToPax(cat), 0);
     const totalChd = calcRates.reduce((s, r) => s + num(r.nChd1) + num(r.nChd2), 0);
 
-    const roomResults = calcRates.map((r, i) => {
-      const adults = catToPax(roomCats[i] ?? "DBL");
-      const base = num(r.pppnDbl) + num(r.sglRoom) + num(r.pppnTpl);
-      return (base * adults * nights) + (num(r.chd1) * num(r.nChd1) * nights) + (num(r.chd2) * num(r.nChd2) * nights);
-    });
+    const rooms = calcRates.map((r, i) => roomCalc(r, i, n1, n2, splitActive));
+    const roomResults = rooms.map((x) => x.total);
     const dSuppTotals = dateSupps.map((s) => (num(s.adultRate) * totalAdults) + (num(s.childRate) * totalChd));
     const sSuppTotals = staySupps.map((s) => (num(s.adultRate) * totalAdults) + (num(s.childRate) * totalChd));
 
@@ -439,16 +469,8 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
 
     const cur = form.bookingCurrency;
 
-    const roomLines = calcRates.map((r, i) => {
-      const adults = catToPax(roomCats[i] ?? "DBL");
-      const base = num(r.pppnDbl) + num(r.sglRoom) + num(r.pppnTpl);
-      const roomTotal = (base * adults * nights) + (num(r.chd1) * num(r.nChd1) * nights) + (num(r.chd2) * num(r.nChd2) * nights);
-      const parts: string[] = [];
-      if (base > 0) parts.push(`(${base}×${adults}adl×${nights}nts)`);
-      if (num(r.chd1) > 0 && num(r.nChd1) > 0) parts.push(`(${r.chd1}×${r.nChd1}chd1×${nights}nts)`);
-      if (num(r.chd2) > 0 && num(r.nChd2) > 0) parts.push(`(${r.chd2}×${r.nChd2}chd2×${nights}nts)`);
-      return `Rm${i + 1}(${roomCats[i]}): ${parts.join("+")} = ${roomTotal.toFixed(2)}`;
-    });
+    const splitTag = splitActive ? `Split@${splitDate}(${n1}+${n2}nts) | ` : "";
+    const roomLines = rooms.map((x, i) => `Rm${i + 1}(${roomCats[i]}): ${x.formula} = ${x.total.toFixed(2)}`);
     const dateSuppLines = dateSupps.map((s, i) =>
       `DateSupp[${s.date || "?"}]${s.desc ? " " + s.desc : ""}: (${s.adultRate}×${totalAdults}adl)+(${s.childRate}×${totalChd}chd) = ${dSuppTotals[i].toFixed(2)}`
     );
@@ -456,7 +478,7 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
       `StaySupp${s.desc ? " " + s.desc : ""}: (${s.adultRate}×${totalAdults}adl)+(${s.childRate}×${totalChd}chd) = ${sSuppTotals[i].toFixed(2)}`
     );
     const allLines = [...roomLines, ...dateSuppLines, ...staySuppLines];
-    const formula = allLines.join(" | ") + ` | Total: ${total.toFixed(2)}`;
+    const formula = splitTag + allLines.join(" | ") + ` | Total: ${total.toFixed(2)}`;
 
     if (cur === "USD" || cur === "GBP") {
       setForm((f) => ({ ...f, costUsd: String(total), calculationUsd: formula }));
@@ -1458,6 +1480,31 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
           <div><span className="text-muted-foreground">Children: </span><span className="font-semibold">{form.children}</span></div>
         </div>
 
+        {/* Split rate across two periods (e.g. rate changes mid-stay at a season boundary) */}
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-border px-4 py-2.5 text-sm">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              className="size-4 accent-primary"
+              checked={!!splitDate}
+              onChange={(e) => setSplitDate(e.target.checked ? (form.departureDate && form.arrivalDate ? new Date((new Date(form.arrivalDate + "T00:00:00").getTime() + new Date(form.departureDate + "T00:00:00").getTime()) / 2).toISOString().slice(0, 10) : "") : "")}
+            />
+            <span className="font-medium">Split rate across 2 periods</span>
+          </label>
+          {!!splitDate && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-xs">Period 2 starts</span>
+              <Input type="date" value={splitDate} min={form.arrivalDate || undefined} max={form.departureDate || undefined} onChange={(e) => setSplitDate(e.target.value)} className="h-8 text-sm w-40" />
+              {(() => {
+                const { splitActive, n1, n2 } = nightsSplit();
+                return splitActive
+                  ? <span className="text-xs font-medium text-primary tabular-nums">P1: {n1} nts · P2: {n2} nts</span>
+                  : <span className="text-xs text-amber-600">Set a date strictly between arrival &amp; departure</span>;
+              })()}
+            </div>
+          )}
+        </div>
+
         {/* Per-room rate rows */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -1476,49 +1523,62 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
               </tr>
             </thead>
             <tbody>
-              {calcRates.map((r, i) => (
-                <tr key={i} className="border-b border-border">
-                  <td className="px-3 py-2 font-medium">Room {i + 1}<br /><span className="text-[10px] text-muted-foreground font-normal">{roomCats[i]}</span></td>
-                  <td className="px-3 py-2 text-center tabular-nums font-semibold text-primary">{catToPax(roomCats[i] ?? "DBL")}</td>
-                  {(["nChd1", "nChd2"] as const).map((field) => (
-                    <td key={field} className="px-2 py-1.5">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={r[field]}
-                        onChange={(e) => {
-                          const next = [...calcRates];
-                          next[i] = { ...next[i], [field]: e.target.value };
-                          setCalcRates(next);
-                        }}
-                        className="h-8 text-sm w-16 tabular-nums text-center"
-                      />
-                    </td>
-                  ))}
-                  {(["pppnDbl", "sglRoom", "pppnTpl", "chd1", "chd2"] as const).map((field) => (
-                    <td key={field} className="px-2 py-1.5">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={r[field]}
-                        onChange={(e) => {
-                          const next = [...calcRates];
-                          next[i] = { ...next[i], [field]: e.target.value };
-                          setCalcRates(next);
-                        }}
-                        className="h-8 text-sm w-28 tabular-nums"
-                      />
-                    </td>
-                  ))}
-                  <td className="px-3 py-2 text-right tabular-nums font-semibold">
-                    {calcResults[i] != null && calcResults[i] !== 0
-                      ? calcResults[i].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                      : "—"
-                    }
+              {calcRates.map((r, i) => {
+                const { splitActive } = nightsSplit();
+                const span = splitActive ? 2 : 1;
+                const rateCell = (field: keyof CalcRate) => (
+                  <td key={field} className="px-2 py-1.5">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={r[field]}
+                      onChange={(e) => {
+                        const next = [...calcRates];
+                        next[i] = { ...next[i], [field]: e.target.value };
+                        setCalcRates(next);
+                      }}
+                      className="h-8 text-sm w-28 tabular-nums"
+                    />
                   </td>
-                </tr>
-              ))}
+                );
+                return (
+                  <Fragment key={i}>
+                    <tr className={splitActive ? "" : "border-b border-border"}>
+                      <td className="px-3 py-2 font-medium align-top">Room {i + 1}<br /><span className="text-[10px] text-muted-foreground font-normal">{roomCats[i]}{splitActive ? " · P1" : ""}</span></td>
+                      <td rowSpan={span} className="px-3 py-2 text-center tabular-nums font-semibold text-primary align-middle">{catToPax(roomCats[i] ?? "DBL")}</td>
+                      {(["nChd1", "nChd2"] as const).map((field) => (
+                        <td key={field} rowSpan={span} className="px-2 py-1.5 align-middle">
+                          <Input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={r[field]}
+                            onChange={(e) => {
+                              const next = [...calcRates];
+                              next[i] = { ...next[i], [field]: e.target.value };
+                              setCalcRates(next);
+                            }}
+                            className="h-8 text-sm w-16 tabular-nums text-center"
+                          />
+                        </td>
+                      ))}
+                      {(["pppnDbl", "sglRoom", "pppnTpl", "chd1", "chd2"] as const).map(rateCell)}
+                      <td rowSpan={span} className="px-3 py-2 text-right tabular-nums font-semibold align-middle">
+                        {calcResults[i] != null && calcResults[i] !== 0
+                          ? calcResults[i].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : "—"
+                        }
+                      </td>
+                    </tr>
+                    {splitActive && (
+                      <tr className="border-b border-border bg-secondary/20">
+                        <td className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap align-middle">P2 · from {splitDate}</td>
+                        {(["pppnDbl2", "sglRoom2", "pppnTpl2", "chd1_2", "chd2_2"] as const).map(rateCell)}
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1644,7 +1704,7 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
         )}
 
         <p className="text-[11px] text-muted-foreground">
-          Room rates: (Base×Adults×Nights)+(CHD1 Rate×No.CHD1×Nights)+(CHD2 Rate×No.CHD2×Nights). Supplements: (Adult Rate×Total Adults)+(Child Rate×Total Children). Press Calculate first.
+          Room rates: (Base×Adults×Nights)+(CHD1 Rate×No.CHD1×Nights)+(CHD2 Rate×No.CHD2×Nights). When split, nights are apportioned P1/P2 and each period uses its own DBL/SGL/TPL &amp; child rates. Supplements: (Adult Rate×Total Adults)+(Child Rate×Total Children). Press Calculate first.
         </p>
 
         <DialogFooter>
