@@ -122,7 +122,18 @@ export class DashboardService {
 
   async rebookingStats(q: DashboardQueryDto): Promise<RebookingStats> {
     const rows = await this.prisma.booking.findMany({
-      where: { ...this.where(q), NOT: { rateHistoryJson: null } },
+      // rateHistory must be present, AND the booking must not be cancelled:
+      // cancelling a booking zeroes its cost/selling, and the gain formula
+      // (original cost − current cost) would otherwise read that drop to zero
+      // as a bogus rebooking profit. A cancellation is not a rebooking.
+      where: {
+        ...this.where(q),
+        NOT: [
+          { rateHistoryJson: null },
+          { hotelStatus: "CXL" },
+          { toStatus: "CXL" },
+        ],
+      },
       select: {
         costUsd: true, costEur: true, costEgp: true, bookingCurrency: true, rateHistoryJson: true,
         toBookingRef: true, sejourRef: true,
