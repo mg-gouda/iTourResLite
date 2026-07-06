@@ -17,6 +17,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
 import { ExportButtons } from "@/components/export-buttons";
 import { ClearFiltersButton } from "@/components/clear-filters-button";
+import { ReportTotalCount } from "@/components/report-total-count";
 import type { ExportSpec } from "@/lib/export";
 
 export default function ArrivalTransfersPage() {
@@ -85,6 +86,9 @@ export default function ArrivalTransfersPage() {
           <Field label="Tour Operator"><Combobox options={toOpts} value={tourOperatorId} onChange={setTourOperatorId} placeholder="Any" /></Field>
         </CardContent>
       </Card>
+
+      {(query.data?.length ?? 0) > 0 && <ReportTotalCount count={query.data!.length} />}
+
       <Card>
         <CardContent className="p-0">
           {!from && !to ? (

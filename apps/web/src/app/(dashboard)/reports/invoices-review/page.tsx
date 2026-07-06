@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { formatMoney, fmtDate, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { ReportCurrencyTotals } from "@/components/report-currency-totals";
+import { ReportTotalCount } from "@/components/report-total-count";
 import { ClearFiltersButton } from "@/components/clear-filters-button";
 import { useLookups, lookupToOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
@@ -24,13 +25,6 @@ const CUR_FIELDS: [string, string, string][] = [
   ["EUR", "costEur", "sellingEur"],
   ["EGP", "costEgp", "sellingEgp"],
 ];
-
-// Cost/selling lines for every currency the booking actually carries figures in.
-function currencyLines(b: any) {
-  return CUR_FIELDS
-    .map(([cur, c, s]) => ({ cur, cost: Number(b[c] ?? 0), selling: Number(b[s] ?? 0) }))
-    .filter((x) => x.cost !== 0 || x.selling !== 0);
-}
 
 // Lead-to-full guest names: prefer HOTEL guests, fall back to any listed guest,
 // then to the legacy free-text field.
@@ -73,14 +67,8 @@ export default function InvoicesReviewPage() {
     ],
   }));
 
-  const EXPORT_COLS = ["Operator", "Operator Reference", "Hotel Name", "Arrival", "Departure", "Guest Name", "Currencies Cost & Selling"];
-  const EXPORT_ALIGNS = ["left", "left", "left", "left", "left", "left", "left"] as ("left" | "right")[];
-
-  const currencyText = (b: any) => {
-    const lines = currencyLines(b);
-    if (!lines.length) return "—";
-    return lines.map((x) => `${x.cur} Cost ${formatMoney(x.cost, x.cur)} / Sell ${formatMoney(x.selling, x.cur)}`).join(" | ");
-  };
+  const EXPORT_COLS = ["Operator", "Operator Reference", "Hotel Name", "Arrival", "Departure", "Guest Name", "Cost USD", "Selling USD", "Cost EUR", "Selling EUR", "Cost EGP", "Selling EGP"];
+  const EXPORT_ALIGNS = ["left", "left", "left", "left", "left", "left", "right", "right", "right", "right", "right", "right"] as ("left" | "right")[];
 
   function buildExport(): ExportSpec {
     return {
@@ -90,8 +78,10 @@ export default function InvoicesReviewPage() {
       aligns: EXPORT_ALIGNS,
       rows: rows.map((b) => [
         operatorLabel(b), b.toBookingRef, b.hotel?.name ?? "",
-        fmtDate(b.arrivalDate), fmtDate(b.departureDate),
-        guestLabel(b), currencyText(b),
+        fmtDate(b.arrivalDate), fmtDate(b.departureDate), guestLabel(b),
+        Number(b.costUsd), Number(b.sellingUsd),
+        Number(b.costEur), Number(b.sellingEur),
+        Number(b.costEgp), Number(b.sellingEgp),
       ]),
     };
   }
@@ -128,13 +118,14 @@ export default function InvoicesReviewPage() {
         </CardContent>
       </Card>
 
+      {rows.length > 0 && <ReportTotalCount count={rows.length} />}
       {rows.length > 0 && <ReportCurrencyTotals totals={currencyTotals} />}
 
       <Card>
         <CardContent className="p-0">
           {!from && !to && !tourOperatorId && !status ? (
             <EmptyState title="Set a filter" description="Select an arrival-date range, operator or booking status to load the report." />
-          ) : query.isLoading ? <TableSkeleton rows={8} cols={7} />
+          ) : query.isLoading ? <TableSkeleton rows={8} cols={12} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !rows.length ? <EmptyState title="No bookings" />
           : (
@@ -144,7 +135,9 @@ export default function InvoicesReviewPage() {
                   <TR>
                     <TH>Operator</TH><TH>Operator Reference</TH><TH>Hotel Name</TH>
                     <TH>Arrival</TH><TH>Departure</TH><TH>Guest Name</TH>
-                    <TH>Currencies Cost &amp; Selling</TH>
+                    <TH className="text-right">Cost USD</TH><TH className="text-right">Selling USD</TH>
+                    <TH className="text-right">Cost EUR</TH><TH className="text-right">Selling EUR</TH>
+                    <TH className="text-right">Cost EGP</TH><TH className="text-right">Selling EGP</TH>
                   </TR>
                 </THead>
                 <TBody>
@@ -156,19 +149,12 @@ export default function InvoicesReviewPage() {
                       <TD className="whitespace-nowrap">{fmtDate(b.arrivalDate)}</TD>
                       <TD className="whitespace-nowrap">{fmtDate(b.departureDate)}</TD>
                       <TD className="max-w-[14rem] truncate" title={guestLabel(b)}>{guestLabel(b)}</TD>
-                      <TD>
-                        {currencyLines(b).length ? (
-                          <div className="space-y-0.5">
-                            {currencyLines(b).map((x) => (
-                              <div key={x.cur} className="whitespace-nowrap tabular-nums text-xs">
-                                <span className="font-medium">{x.cur}</span>{" "}
-                                <span className="text-muted-foreground">Cost</span> {formatMoney(x.cost, x.cur)}{" "}
-                                <span className="text-muted-foreground">· Sell</span> {formatMoney(x.selling, x.cur)}
-                              </div>
-                            ))}
-                          </div>
-                        ) : <span className="text-muted-foreground">—</span>}
-                      </TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.costUsd, "USD")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.sellingUsd, "USD")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.costEur, "EUR")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.sellingEur, "EUR")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.costEgp, "EGP")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.sellingEgp, "EGP")}</TD>
                     </TR>
                   ))}
                 </TBody>

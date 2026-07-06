@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { formatMoney, fmtDate, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { ReportCurrencyTotals } from "@/components/report-currency-totals";
+import { ReportTotalCount } from "@/components/report-total-count";
 import { ClearFiltersButton } from "@/components/clear-filters-button";
 import { useLookups, fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
@@ -124,6 +125,7 @@ export default function HotelPaymentPage() {
         </CardContent>
       </Card>
 
+      {rows.length > 0 && <ReportTotalCount count={rows.length} />}
       {rows.length > 0 && <ReportCurrencyTotals totals={currencyTotals} />}
 
       <Card>

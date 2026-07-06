@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { formatMoney, fmtDate, plUsd, plEur, plEgp, effectivePl, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { ReportCurrencyTotals } from "@/components/report-currency-totals";
+import { ReportTotalCount } from "@/components/report-total-count";
 import { ClearFiltersButton } from "@/components/clear-filters-button";
 import { useLookups, lookupToOptions, fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
@@ -143,9 +144,7 @@ export default function BookingFinancePage() {
 
       {rows.length > 0 && (
         <>
-          <p className="mb-2 text-sm text-muted-foreground">
-            Total Bookings: <span className="font-medium text-foreground tabular-nums">{rows.length}</span>
-          </p>
+          <ReportTotalCount count={rows.length} />
           <ReportCurrencyTotals totals={currencyTotals} />
         </>
       )}
