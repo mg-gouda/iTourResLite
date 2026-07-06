@@ -1,6 +1,6 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { z } from "zod";
-import { zBookingStatus } from "@itour/shared";
+import { zBookingStatus, computePaidTotals, round2 } from "@itour/shared";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -119,7 +119,7 @@ export class ReportsController {
    * hotel booking status.
    */
   @Get("hotel-payment")
-  hotelPayment(@Query(new ZodValidationPipe(dateRange)) q: DateRange) {
+  async hotelPayment(@Query(new ZodValidationPipe(dateRange)) q: DateRange) {
     const where: any = { deletedAt: null };
     if (q.hotelId)        where.hotelId = q.hotelId;
     if (q.tourOperatorId) where.tourOperatorId = q.tourOperatorId;
@@ -128,13 +128,14 @@ export class ReportsController {
     if (q.status)         where.hotelStatus = q.status;
     if (q.paid === "paid")   where.bookingPaid = true;
     if (q.paid === "unpaid") where.bookingPaid = false;
-    // Payment-date range only constrains paid bookings (unpaid have no paidDate).
+    // Payment-date range only constrains fully-paid bookings (partial/unpaid have
+    // no paidDate yet — a deposit alone doesn't set it).
     if ((q.from || q.to) && q.paid !== "unpaid") {
       where.paidDate = {};
       if (q.from) where.paidDate.gte = q.from;
       if (q.to)   where.paidDate.lte = q.to;
     }
-    return this.prisma.booking.findMany({
+    const rows = await this.prisma.booking.findMany({
       where,
       orderBy: [{ paidDate: "desc" }, { arrivalDate: "asc" }],
       select: {
@@ -142,9 +143,40 @@ export class ReportsController {
         costUsd: true, costEur: true, costEgp: true,
         paymentOptionDate: true, bookingPaid: true, paidDate: true,
         paymentProofName: true,
+        payments: { select: { id: true, amount: true, currency: true, paidDate: true, source: true } },
+        creditNotes: {
+          select: {
+            id: true, amount: true, currency: true, noteDate: true, reference: true,
+            redemptions: { select: { amount: true } },
+          },
+        },
         hotel: { select: { id: true, name: true } },
         tourOperator: { select: { id: true, code: true, name: true } },
       },
+    });
+
+    // Roll up each booking's payment ledger + credit-note holdings for display.
+    return rows.map((b) => {
+      const totals = computePaidTotals(b as any, b.payments as any);
+      const creditNotes = b.creditNotes.map((cn) => {
+        const redeemed = round2(cn.redemptions.reduce((s, r) => s + Number(r.amount), 0));
+        const amount = Number(cn.amount);
+        return {
+          id: cn.id, amount, currency: cn.currency, noteDate: cn.noteDate,
+          reference: cn.reference, redeemed, remaining: round2(amount - redeemed),
+        };
+      });
+      const creditNoteRemaining = round2(creditNotes.reduce((s, cn) => s + cn.remaining, 0));
+      const { payments, creditNotes: _cn, ...rest } = b as any;
+      return {
+        ...rest,
+        paidCurrency: totals.currency,
+        paidTotal: totals.paid,
+        balance: totals.balance,
+        paymentCount: b.payments.length,
+        creditNotes,
+        creditNoteRemaining,
+      };
     });
   }
 

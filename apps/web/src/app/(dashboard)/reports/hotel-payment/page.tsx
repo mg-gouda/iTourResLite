@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, ExternalLink } from "lucide-react";
+import { Download } from "lucide-react";
 import { formatMoney, fmtDate } from "@itour/shared";
-import { get, qs, API } from "@/lib/api";
+import { get, qs } from "@/lib/api";
 import { useLookups, fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,8 +38,11 @@ export default function HotelPaymentPage() {
 
   const rows = query.data ?? [];
 
-  const EXPORT_COLS = ["Operator Ref", "Hotel", "Status", "Cost USD", "Cost EUR", "Cost EGP", "Payment Option", "Paid", "Paid Date", "Payment Proof"];
-  const EXPORT_ALIGNS = ["left", "left", "left", "right", "right", "right", "left", "left", "left", "left"] as ("left" | "right")[];
+  const EXPORT_COLS = ["Operator Ref", "Hotel", "Status", "Cost USD", "Cost EUR", "Cost EGP", "Paid", "Balance", "Credit Note", "Payment Option", "Payment", "Paid Date"];
+  const EXPORT_ALIGNS = ["left", "left", "left", "right", "right", "right", "right", "right", "right", "left", "left", "left"] as ("left" | "right")[];
+
+  const payLabel = (b: any) => (b.bookingPaid ? "Paid" : b.paidTotal > 0 ? "Partial" : "Unpaid");
+  const cnCurrency = (b: any) => b.creditNotes?.[0]?.currency ?? b.paidCurrency;
 
   function buildExport(): ExportSpec {
     return {
@@ -50,8 +53,9 @@ export default function HotelPaymentPage() {
       rows: rows.map((b) => [
         b.toBookingRef, b.hotel?.name ?? "", b.hotelStatus,
         Number(b.costUsd), Number(b.costEur), Number(b.costEgp),
-        fmtDate(b.paymentOptionDate), b.bookingPaid ? "Paid" : "Unpaid",
-        fmtDate(b.paidDate), b.paymentProofName ?? "—",
+        formatMoney(b.paidTotal ?? 0, b.paidCurrency), formatMoney(b.balance ?? 0, b.paidCurrency),
+        b.creditNoteRemaining ? formatMoney(b.creditNoteRemaining, cnCurrency(b)) : "—",
+        fmtDate(b.paymentOptionDate), payLabel(b), fmtDate(b.paidDate),
       ]),
     };
   }
@@ -99,7 +103,7 @@ export default function HotelPaymentPage() {
         <CardContent className="p-0">
           {!from && !to && !hotelId && !status && !paid ? (
             <EmptyState title="Set a filter" description="Select a paid-date range, hotel, payment status or booking status to load the report." />
-          ) : query.isLoading ? <TableSkeleton rows={8} cols={10} />
+          ) : query.isLoading ? <TableSkeleton rows={8} cols={12} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !rows.length ? <EmptyState title="No bookings" />
           : (
@@ -109,7 +113,8 @@ export default function HotelPaymentPage() {
                   <TR>
                     <TH>Operator Ref</TH><TH>Hotel</TH><TH>Status</TH>
                     <TH className="text-right">Cost USD</TH><TH className="text-right">Cost EUR</TH><TH className="text-right">Cost EGP</TH>
-                    <TH>Payment Option</TH><TH>Paid</TH><TH>Paid Date</TH><TH className="text-center">Proof</TH>
+                    <TH className="text-right">Paid</TH><TH className="text-right">Balance</TH><TH className="text-right">Credit Note</TH>
+                    <TH>Payment Option</TH><TH>Payment</TH><TH>Paid Date</TH>
                   </TR>
                 </THead>
                 <TBody>
@@ -121,24 +126,18 @@ export default function HotelPaymentPage() {
                       <TD className="text-right tabular-nums">{formatMoney(b.costUsd, "USD")}</TD>
                       <TD className="text-right tabular-nums">{formatMoney(b.costEur, "EUR")}</TD>
                       <TD className="text-right tabular-nums">{formatMoney(b.costEgp, "EGP")}</TD>
-                      <TD>{fmtDate(b.paymentOptionDate)}</TD>
-                      <TD><Badge variant={b.bookingPaid ? "success" : "warning"}>{b.bookingPaid ? "Paid" : "Unpaid"}</Badge></TD>
-                      <TD>{fmtDate(b.paidDate)}</TD>
-                      <TD className="text-center">
-                        {b.paymentProofName ? (
-                          <a
-                            href={`${API}/bookings/${b.id}/payment-proof`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={`Open ${b.paymentProofName}`}
-                            className="inline-flex items-center justify-center rounded-md border border-input p-1.5 text-primary hover:bg-secondary/60"
-                          >
-                            <ExternalLink className="size-4" />
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
+                      <TD className="text-right tabular-nums">{formatMoney(b.paidTotal ?? 0, b.paidCurrency)}</TD>
+                      <TD className={`text-right tabular-nums ${(b.balance ?? 0) > 0.005 ? "text-amber-600 dark:text-amber-400" : ""}`}>{formatMoney(b.balance ?? 0, b.paidCurrency)}</TD>
+                      <TD className="text-right tabular-nums">
+                        {b.creditNoteRemaining ? (
+                          <span className="text-emerald-600 dark:text-emerald-400" title={`${b.creditNotes?.length ?? 0} credit note(s) held at this hotel`}>
+                            {formatMoney(b.creditNoteRemaining, cnCurrency(b))}
+                          </span>
+                        ) : <span className="text-muted-foreground">—</span>}
                       </TD>
+                      <TD>{fmtDate(b.paymentOptionDate)}</TD>
+                      <TD><Badge variant={b.bookingPaid ? "success" : b.paidTotal > 0 ? "warning" : "neutral"}>{payLabel(b)}</Badge></TD>
+                      <TD>{fmtDate(b.paidDate)}</TD>
                     </TR>
                   ))}
                 </TBody>

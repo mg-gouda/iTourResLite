@@ -269,6 +269,44 @@ async function main() {
   // when the bookings table is empty, or when explicitly forced with
   // FORCE_SEED=true. The lookup/hotel/user upserts above are non-destructive
   // and always run.
+  // ---- Backfill legacy "Booking Paid" into the payments ledger ----
+  // Pre-ledger, a booking was marked paid via bookingPaid + a single proof.
+  // Now paid status is derived from BookingPayment rows, so materialise one CASH
+  // payment per legacy-paid booking that has none yet. Idempotent (skips any
+  // booking that already carries a payment) and runs even when the destructive
+  // reseed below is skipped on a populated database.
+  const legacyPaid = await prisma.booking.findMany({
+    where: { bookingPaid: true, payments: { none: {} } },
+    select: {
+      id: true, bookingCurrency: true, costUsd: true, costEur: true, costEgp: true,
+      paidDate: true, updatedAt: true, paymentProofPath: true, paymentProofName: true,
+    },
+  });
+  let backfilled = 0;
+  for (const b of legacyPaid) {
+    const cur = (b.bookingCurrency || "").toUpperCase();
+    const costOf = (c: string) =>
+      c === "USD" ? Number(b.costUsd) : c === "EUR" ? Number(b.costEur) : Number(b.costEgp);
+    let payCur = cur === "GBP" ? "USD" : (["USD", "EUR", "EGP"].includes(cur) ? cur : "");
+    if (!payCur) payCur = ["USD", "EUR", "EGP"].find((c) => costOf(c) !== 0) || "USD";
+    const amount = costOf(payCur);
+    if (amount <= 0) continue; // no cost figure to anchor the payment on
+    await prisma.bookingPayment.create({
+      data: {
+        bookingId: b.id,
+        amount,
+        currency: payCur,
+        paidDate: b.paidDate ?? b.updatedAt,
+        source: "CASH",
+        note: "Backfilled from legacy Booking Paid",
+        proofPath: b.paymentProofPath,
+        proofName: b.paymentProofName,
+      },
+    });
+    backfilled++;
+  }
+  if (backfilled) console.log(`Seed: backfilled ${backfilled} legacy paid booking(s) into the payments ledger.`);
+
   const stats = { bookings: 0, skipped: 0, stopsales: 0, ssSkipped: 0 };
   const existingBookings = await prisma.booking.count();
   const force = process.env.FORCE_SEED === "true";

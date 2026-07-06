@@ -85,6 +85,57 @@ export interface DerivedBookingFields {
   ebdAmountEgp: number;
 }
 
+// ── Payments ledger ───────────────────────────────────────────────────────
+// A booking is paid via one or more BookingPayment rows (deposit + balance, or
+// several installments), each possibly funded by redeeming a hotel credit note.
+// bookingPaid/paidDate are derived from this ledger, not set by hand.
+
+export type PaidCurrency = "USD" | "EUR" | "EGP";
+
+/**
+ * The booking's own-currency cost. Mirrors effectivePl's mapping: GBP folds into
+ * USD; if the chosen currency carries no cost, falls back to whichever does.
+ */
+export function bookingOwnCurrency(b: {
+  bookingCurrency?: string | null;
+  costUsd: number | string; costEur: number | string; costEgp?: number | string;
+}): { currency: PaidCurrency; cost: number } {
+  const costOf = (c: PaidCurrency) =>
+    c === "USD" ? n(b.costUsd) : c === "EUR" ? n(b.costEur) : n(b.costEgp ?? 0);
+  const cur = (b.bookingCurrency ?? "").toUpperCase();
+  const primary = cur === "GBP" ? "USD" : (["USD", "EUR", "EGP"] as const).find((c) => c === cur);
+  if (primary) return { currency: primary, cost: round2(costOf(primary)) };
+  const fallback = (["USD", "EUR", "EGP"] as const).find((c) => costOf(c) !== 0) ?? "USD";
+  return { currency: fallback, cost: round2(costOf(fallback)) };
+}
+
+export interface PaidTotals {
+  currency: PaidCurrency;
+  cost: number;
+  paid: number;      // Σ payments recorded in the booking's own currency
+  balance: number;   // cost − paid (negative = overpaid)
+  isPaid: boolean;   // fully settled: cost > 0 && paid ≥ cost
+  lastPaidDate: string | null; // latest payment date (ISO), or null if none
+}
+
+/**
+ * Roll up a booking's payment ledger into cost/paid/balance and a derived
+ * fully-paid flag. Only payments in the booking's own currency count toward the
+ * total (installments are expected in that currency).
+ */
+export function computePaidTotals(
+  b: { bookingCurrency?: string | null; costUsd: number | string; costEur: number | string; costEgp?: number | string },
+  payments: Array<{ amount: number | string; currency?: string | null; paidDate: Date | string }>,
+): PaidTotals {
+  const { currency, cost } = bookingOwnCurrency(b);
+  const relevant = payments.filter((p) => (p.currency ?? currency).toUpperCase() === currency);
+  const paid = round2(relevant.reduce((s, p) => s + n(p.amount), 0));
+  let lastPaidDate: string | null = null;
+  const times = relevant.map((p) => new Date(p.paidDate).getTime()).filter((t) => Number.isFinite(t));
+  if (times.length) lastPaidDate = new Date(Math.max(...times)).toISOString();
+  return { currency, cost, paid, balance: round2(cost - paid), isPaid: cost > 0 && paid >= cost, lastPaidDate };
+}
+
 export function deriveBooking(b: {
   arrivalDate: Date | string;
   departureDate: Date | string;

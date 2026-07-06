@@ -90,6 +90,51 @@ export type BookingWriteDto = z.infer<typeof bookingObject>;
 export const bookingUpdateSchema = bookingObject.partial();
 export type BookingUpdateDto = z.infer<typeof bookingUpdateSchema>;
 
+// ---- Booking payments & credit notes ----
+export const PAYMENT_SOURCES = ["CASH", "CREDIT_NOTE"] as const;
+
+export const bookingPaymentSchema = z.object({
+  amount: z.coerce.number().finite().positive(),
+  currency: z.string().min(1),
+  paidDate: z.coerce.date(),
+  method: z.string().optional().nullable(),
+  reference: z.string().optional().nullable(),
+  note: z.string().optional().nullable(),
+  source: z.enum(PAYMENT_SOURCES).default("CASH"),
+  // When source = CREDIT_NOTE, the credit note being drawn down. Ignored otherwise.
+  creditNoteId: z.string().optional().nullable(),
+}).refine((p) => p.source !== "CREDIT_NOTE" || !!p.creditNoteId, {
+  message: "Select a credit note to redeem",
+  path: ["creditNoteId"],
+});
+export type BookingPaymentDto = z.infer<typeof bookingPaymentSchema>;
+
+// Edits are limited to descriptive fields; to change funding (cash ↔ credit
+// note) delete the payment and add a new one so redemption invariants hold.
+export const bookingPaymentUpdateSchema = z.object({
+  amount: z.coerce.number().finite().positive().optional(),
+  currency: z.string().min(1).optional(),
+  paidDate: z.coerce.date().optional(),
+  method: z.string().optional().nullable(),
+  reference: z.string().optional().nullable(),
+  note: z.string().optional().nullable(),
+});
+export type BookingPaymentUpdateDto = z.infer<typeof bookingPaymentUpdateSchema>;
+
+export const bookingCreditNoteSchema = z.object({
+  // Defaults to the booking's hotel server-side when omitted.
+  hotelId: z.string().optional().nullable(),
+  amount: z.coerce.number().finite().positive(),
+  currency: z.string().min(1),
+  noteDate: z.coerce.date(),
+  reference: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable(),
+});
+export type BookingCreditNoteDto = z.infer<typeof bookingCreditNoteSchema>;
+
+export const bookingCreditNoteUpdateSchema = bookingCreditNoteSchema.partial();
+export type BookingCreditNoteUpdateDto = z.infer<typeof bookingCreditNoteUpdateSchema>;
+
 export const bookingQuerySchema = z.object({
   ref: z.string().optional(),
   hotelId: z.string().optional(),

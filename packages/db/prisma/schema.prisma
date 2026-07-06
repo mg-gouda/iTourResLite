@@ -82,6 +82,8 @@ model User {
   bookings          Booking[]  @relation("CreatedBy")
   auditLogs         AuditLog[]
   userPermissions   UserPermission[]
+  bookingPayments     BookingPayment[]    @relation("PaymentCreatedBy")
+  bookingCreditNotes  BookingCreditNote[] @relation("CreditNoteCreatedBy")
 }
 
 model RolePermission {
@@ -134,6 +136,7 @@ model Hotel {
   roomTypes HotelRoomType[]
   bookings  Booking[]
   stopSales StopSale[]
+  creditNotes BookingCreditNote[]
 }
 
 model HotelRoomType {
@@ -200,12 +203,17 @@ model Booking {
   paymentMethod    String        // PaymentMethodLookup.code
   paymentOptionDate DateTime?
   visaHandling     Decimal       @default(0) @db.Decimal(12, 2)
-  // Finance: marked paid by Accountant/Manager. paidDate captured server-side
-  // the moment bookingPaid flips false→true; cleared when unchecked.
+  // Finance: bookingPaid + paidDate are now SERVER-DERIVED from the payments
+  // ledger (recomputed on every payment mutation): bookingPaid = Σ payments in
+  // the booking currency ≥ cost; paidDate = latest payment date when fully paid.
+  // The legacy paymentProof* columns hold the pre-ledger single proof (kept for
+  // backfill display); new proofs attach per BookingPayment row.
   bookingPaid      Boolean       @default(false)
   paidDate         DateTime?
   paymentProofPath String?
   paymentProofName String?
+  payments         BookingPayment[]
+  creditNotes      BookingCreditNote[]
   arrFlightNo      String?
   arrFlightTime    String?
   depFlightNo      String?
@@ -236,6 +244,59 @@ model Booking {
   @@index([hotelId, arrivalDate, departureDate])
   @@index([hotelRoomTypeId])
   @@index([hotelStatus])
+}
+
+// A payment made to a hotel for a booking. Multiple rows allow deposit +
+// balance (or several installments). A payment is either paid in CASH or funded
+// by redeeming a held BookingCreditNote (source = CREDIT_NOTE, creditNoteId set).
+model BookingPayment {
+  id           String    @id @default(cuid())
+  bookingId    String
+  booking      Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount       Decimal   @db.Decimal(12, 2)
+  currency     String    // USD | EUR | EGP | GBP
+  paidDate     DateTime
+  method       String?   // PaymentMethodLookup.code (optional)
+  reference    String?   // hotel receipt / transfer reference
+  note         String?
+  source       String    @default("CASH") // CASH | CREDIT_NOTE
+  creditNoteId String?   // set when source = CREDIT_NOTE (redemption)
+  creditNote   BookingCreditNote? @relation(fields: [creditNoteId], references: [id])
+  proofPath    String?
+  proofName    String?
+  createdById  String?
+  createdBy    User?     @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([bookingId])
+  @@index([creditNoteId])
+}
+
+// A credit note held at a hotel — value we paid for a booking that was later
+// cancelled, kept for future business. Redeemable at the issuing hotel; drawn
+// down by BookingPayment rows with source = CREDIT_NOTE (see redemptions).
+model BookingCreditNote {
+  id          String    @id @default(cuid())
+  bookingId   String    // booking that generated the credit (usually cancelled)
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  hotelId     String    // hotel that holds the credit — redeemable here
+  hotel       Hotel     @relation(fields: [hotelId], references: [id])
+  amount      Decimal   @db.Decimal(12, 2)
+  currency    String
+  noteDate    DateTime
+  reference   String?
+  remarks     String?
+  proofPath   String?
+  proofName   String?
+  createdById String?
+  createdBy   User?     @relation("CreditNoteCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  redemptions BookingPayment[] // payments funded by drawing down this credit note
+
+  @@index([bookingId])
+  @@index([hotelId])
 }
 
 model GuestName {
