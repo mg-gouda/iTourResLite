@@ -59,3 +59,43 @@ pnpm db:seed    # re-seed (replaces bookings; upserts lookups/hotels/users)
 pnpm --filter @itour/api dev
 pnpm --filter @itour/web dev
 ```
+
+## [2026-07-06] Finance ledger + Reports sprint & UX polish
+
+**Scope:** Payment/credit-note finance model, a new Invoices Review report, and a
+round of report + booking-form UX improvements. All changes carried through the
+full prod cycle (build → verify on 8010/8011 → commit+push → deploy).
+
+**Finance model (commits `4f1a47f`, `b186744`, `ca76741`):**
+- Booking Paid flag + payment proof upload; multi-payment ledger and per-hotel
+  credit notes (with redemptions) per booking.
+- Hotel Payment report with PDF/Excel exports; Paid/Partial/Unpaid + Credit Note filters.
+
+**Reports (commits `a2add4b` → `f09c252`):**
+- New **Invoices Review** report (`/reports/invoices-review`): operator, stay dates,
+  guest, per-currency cost/selling. Currency split into 6 dedicated columns
+  (Cost/Selling × USD/EUR/EGP) in both the table and CSV/PDF exports.
+- Added **Booking Date** column as column 2 (after Operator) — API report `select`
+  now returns `bookingDate`.
+- Per-currency **Total** cards on Booking Finance + 4 other reports
+  (`report-currency-totals` component).
+- **Total Bookings: N** count line above cards/table on all 8 reports
+  (`report-total-count` component).
+
+**UX polish (commit `f779065`):**
+- Hotel Payment: added **Arrival From/To** date-range filter (independent of paid
+  date), placed right before Paid From/To. API `dateRange` DTO gained
+  `arrivalFrom`/`arrivalTo`; handler filters on `arrivalDate`. Verified live:
+  Nov-2025 range → 102 rows (matches known arrival count).
+- Moved the **Clear filters** button out of each report header into the filter
+  card, bottom-aligned after the last field (all 8 reports).
+- Booking form: added a second **Save Booking** button at the end of the form so
+  users don't have to scroll back to the header to save.
+
+**Notes:**
+- Report endpoints live under `/api/v1/reports/*` (global prefix `api/v1`); all
+  require the `itour_session` cookie (JWT). Seed demo login: `admin@itour.app` /
+  `Passw0rd!`.
+- Verification pattern: log in for the cookie, then curl the report endpoint
+  (the auth cookie is `Secure`, so pass it via `-H "Cookie: itour_session=…"`
+  over plain HTTP rather than a cookie jar).
