@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
-import { formatMoney, fmtDate, plUsd, plEur, plEgp, effectivePl } from "@itour/shared";
+import { formatMoney, fmtDate, plUsd, plEur, plEgp, effectivePl, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
+import { ReportCurrencyTotals } from "@/components/report-currency-totals";
 import { useLookups, lookupToOptions, fetchHotelOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -56,6 +57,24 @@ export default function BookingFinancePage() {
     costEgp: acc.costEgp + Number(b.costEgp),
     sellingEgp: acc.sellingEgp + Number(b.sellingEgp),
   }), { costUsd: 0, sellingUsd: 0, costEur: 0, sellingEur: 0, visaHandling: 0, costEgp: 0, sellingEgp: 0 });
+
+  const currencyTotals = [
+    { currency: "USD", rows: [
+      { label: "Cost", value: round2(totals.costUsd) },
+      { label: "Selling", value: round2(totals.sellingUsd) },
+      { label: "P/L", value: plUsd(totals.costUsd, totals.sellingUsd) },
+    ] },
+    { currency: "EUR", rows: [
+      { label: "Cost", value: round2(totals.costEur) },
+      { label: "Selling", value: round2(totals.sellingEur) },
+      { label: "P/L", value: plEur(totals.costEur, totals.sellingEur, totals.visaHandling) },
+    ] },
+    { currency: "EGP", rows: [
+      { label: "Cost", value: round2(totals.costEgp) },
+      { label: "Selling", value: round2(totals.sellingEgp) },
+      { label: "P/L", value: plEgp(totals.costEgp, totals.sellingEgp) },
+    ] },
+  ];
 
   const EXPORT_COLS = ["Ref", "Hotel", "Arr Date", "Dep Date", "Status", "Rooms", "Cost USD", "Sell USD", "P/L USD", "Cost EUR", "Sell EUR", "P/L EUR", "Cost EGP", "Sell EGP", "P/L EGP", "Pay Method"];
   const EXPORT_ALIGNS = EXPORT_COLS.map((c, i) => (i >= 5 && c !== "Pay Method" ? "right" : "left")) as ("left" | "right")[];
@@ -117,16 +136,7 @@ export default function BookingFinancePage() {
         </CardContent>
       </Card>
 
-      {rows.length > 0 && (
-        <Card className="mb-4">
-          <CardContent className="grid grid-cols-3 gap-4 p-4 sm:grid-cols-6 text-sm">
-            <div><p className="text-muted-foreground text-xs">P/L USD</p><p className="tabular-nums font-medium">{formatMoney(plUsd(totals.costUsd, totals.sellingUsd), "USD")}</p></div>
-            <div><p className="text-muted-foreground text-xs">P/L EUR</p><p className="tabular-nums font-medium">{formatMoney(plEur(totals.costEur, totals.sellingEur, totals.visaHandling), "EUR")}</p></div>
-            <div><p className="text-muted-foreground text-xs">P/L EGP</p><p className="tabular-nums font-medium">{formatMoney(plEgp(totals.costEgp, totals.sellingEgp), "EGP")}</p></div>
-            <div><p className="text-muted-foreground text-xs">Total Bookings</p><p className="tabular-nums font-medium">{rows.length}</p></div>
-          </CardContent>
-        </Card>
-      )}
+      {rows.length > 0 && <ReportCurrencyTotals totals={currencyTotals} />}
 
       <Card>
         <CardContent className="p-0">
