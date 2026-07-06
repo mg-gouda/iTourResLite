@@ -136,7 +136,14 @@ export default function BookingFinancePage() {
         </CardContent>
       </Card>
 
-      {rows.length > 0 && <ReportCurrencyTotals totals={currencyTotals} />}
+      {rows.length > 0 && (
+        <>
+          <p className="mb-2 text-sm text-muted-foreground">
+            Total Bookings: <span className="font-medium text-foreground tabular-nums">{rows.length}</span>
+          </p>
+          <ReportCurrencyTotals totals={currencyTotals} />
+        </>
+      )}
 
       <Card>
         <CardContent className="p-0">
