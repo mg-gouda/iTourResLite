@@ -115,6 +115,26 @@ export class ReportsController {
   }
 
   /**
+   * Invoices Review — one row per booking with operator, refs, stay dates, guest
+   * and per-currency cost/selling. Filters: arrival-date range, operator, status.
+   */
+  @Get("invoices-review")
+  invoicesReview(@Query(new ZodValidationPipe(dateRange)) q: DateRange) {
+    return this.prisma.booking.findMany({
+      where: this.baseWhere(q, "arrivalDate"),
+      orderBy: [{ arrivalDate: "asc" }, { tourOperator: { code: "asc" } }, { toBookingRef: "asc" }],
+      select: {
+        id: true, toBookingRef: true, arrivalDate: true, departureDate: true,
+        hotelStatus: true, guestNames: true, bookingCurrency: true,
+        costUsd: true, sellingUsd: true, costEur: true, sellingEur: true, costEgp: true, sellingEgp: true,
+        guestNameList: { orderBy: { sortOrder: "asc" }, select: { title: true, name: true, type: true, room: true } },
+        hotel: { select: { id: true, name: true } },
+        tourOperator: { select: { id: true, code: true, name: true } },
+      },
+    });
+  }
+
+  /**
    * Hotel Payment Report — cost & payment status per booking, filtered by the
    * server-captured paid date. Filters: paid-date range, hotel, paid/unpaid,
    * hotel booking status.
