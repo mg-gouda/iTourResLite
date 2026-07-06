@@ -81,9 +81,18 @@ export interface RateChangeEntry {
   oldPlEgp: number;
 }
 
+export interface RebookingBookingGain {
+  toBookingRef: string;
+  sejourRef: string | null;
+  gainEur: number;
+  gainUsd: number;
+  gainEgp: number;
+}
+
 export interface RebookingStats {
   bookingCount: number;
   gainEur: number;
   gainUsd: number;
   gainEgp: number;
+  bookings: RebookingBookingGain[];
 }

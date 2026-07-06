@@ -13,12 +13,13 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, RefreshCcw } from "lucide-react";
+import { TrendingUp, RefreshCcw, Eye } from "lucide-react";
 import { formatMoney, type RebookingStats } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { DateRangeFilter, type DateRange } from "@/components/date-range-filter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/states";
@@ -41,8 +42,8 @@ export default function PlPage() {
   });
 
   const rebookingQuery = useQuery({
-    queryKey: ["rebooking-stats"],
-    queryFn: () => get<RebookingStats>("/dashboard/rebooking"),
+    queryKey: ["rebooking-stats", range],
+    queryFn: () => get<RebookingStats>(`/dashboard/rebooking${qs({ from: range.from, to: range.to })}`),
     staleTime: 2 * 60 * 1000,
   });
 
@@ -71,6 +72,7 @@ export default function PlPage() {
 }
 
 function RebookingCard({ data, loading }: { data?: RebookingStats; loading: boolean }) {
+  const [drillOpen, setDrillOpen] = useState(false);
   return (
     <Card className="mb-0 border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20">
       <CardHeader className="pb-2">
@@ -80,13 +82,50 @@ function RebookingCard({ data, loading }: { data?: RebookingStats; loading: bool
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-0.5">
           Cumulative profit gain from bookings rebooked at a lower rate (original cost − current cost).
-          {data && data.bookingCount > 0 && (
-            <span className="ml-1 font-medium text-emerald-600 dark:text-emerald-400">
+        </p>
+        {data && data.bookingCount > 0 && (
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
               {data.bookingCount} booking{data.bookingCount !== 1 ? "s" : ""} rebooked.
             </span>
-          )}
-        </p>
+            <button
+              type="button"
+              onClick={() => setDrillOpen(true)}
+              title="View operator references"
+              aria-label="View rebooked operator references"
+              className="inline-flex items-center justify-center rounded p-0.5 text-emerald-600 transition-colors hover:bg-emerald-500/15 dark:text-emerald-400"
+            >
+              <Eye className="size-3.5" />
+            </button>
+          </div>
+        )}
       </CardHeader>
+      <Dialog open={drillOpen} onOpenChange={setDrillOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCcw className="size-4 text-emerald-600 dark:text-emerald-400" />
+              Rebooked bookings ({data?.bookings.length ?? 0})
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">Operator references of bookings rebooked at a lower rate.</p>
+          <div className="rounded-md border border-border divide-y divide-border text-sm">
+            {(data?.bookings ?? []).map((b, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{b.toBookingRef || "—"}</p>
+                  {b.sejourRef && <p className="text-xs text-muted-foreground truncate">Séjour: {b.sejourRef}</p>}
+                </div>
+                <div className="shrink-0 text-right text-xs tabular-nums text-emerald-600 dark:text-emerald-400">
+                  {b.gainEur > 0 && <div>{formatMoney(b.gainEur, "EUR")}</div>}
+                  {b.gainUsd > 0 && <div>{formatMoney(b.gainUsd, "USD")}</div>}
+                  {b.gainEgp > 0 && <div>{b.gainEgp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EGP</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
       <CardContent>
         {loading ? (
           <div className="flex gap-6"><Skeleton className="h-8 w-32" /><Skeleton className="h-8 w-32" /></div>

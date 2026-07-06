@@ -23,7 +23,7 @@ export class DashboardController {
   }
 
   @Get("rebooking")
-  rebooking() {
-    return this.dash.rebookingStats();
+  rebooking(@Query(new ZodValidationPipe(dashboardQuerySchema)) q: any) {
+    return this.dash.rebookingStats(q);
   }
 }

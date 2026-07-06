@@ -120,14 +120,17 @@ export class DashboardService {
       .sort((a, b) => b.sellingEur - a.sellingEur);
   }
 
-  async rebookingStats(): Promise<RebookingStats> {
+  async rebookingStats(q: DashboardQueryDto): Promise<RebookingStats> {
     const rows = await this.prisma.booking.findMany({
-      where: { deletedAt: null, NOT: { rateHistoryJson: null } },
-      select: { costUsd: true, costEur: true, costEgp: true, bookingCurrency: true, rateHistoryJson: true },
+      where: { ...this.where(q), NOT: { rateHistoryJson: null } },
+      select: {
+        costUsd: true, costEur: true, costEgp: true, bookingCurrency: true, rateHistoryJson: true,
+        toBookingRef: true, sejourRef: true,
+      },
     });
 
-    let bookingCount = 0;
     let gainEur = 0, gainUsd = 0, gainEgp = 0;
+    const bookings: RebookingStats["bookings"] = [];
 
     for (const b of rows) {
       let history: RateChangeEntry[];
@@ -138,12 +141,25 @@ export class DashboardService {
       const gEur = round2(first.oldCostEur - Number(b.costEur));
       const gUsd = round2(first.oldCostUsd - Number(b.costUsd));
       const gEgp = round2(first.oldCostEgp - Number(b.costEgp));
-      if (gEur > 0 || gUsd > 0 || gEgp > 0) bookingCount++;
+      if (!(gEur > 0 || gUsd > 0 || gEgp > 0)) continue;
       gainEur += gEur > 0 ? gEur : 0;
       gainUsd += gUsd > 0 ? gUsd : 0;
       gainEgp += gEgp > 0 ? gEgp : 0;
+      bookings.push({
+        toBookingRef: b.toBookingRef,
+        sejourRef: b.sejourRef ?? null,
+        gainEur: gEur > 0 ? gEur : 0,
+        gainUsd: gUsd > 0 ? gUsd : 0,
+        gainEgp: gEgp > 0 ? gEgp : 0,
+      });
     }
 
-    return { bookingCount, gainEur: round2(gainEur), gainUsd: round2(gainUsd), gainEgp: round2(gainEgp) };
+    return {
+      bookingCount: bookings.length,
+      gainEur: round2(gainEur),
+      gainUsd: round2(gainUsd),
+      gainEgp: round2(gainEgp),
+      bookings,
+    };
   }
 }
