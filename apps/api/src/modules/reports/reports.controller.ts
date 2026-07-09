@@ -10,7 +10,7 @@ const dateRange = z.object({
   arrivalFrom: z.coerce.date().optional(),
   arrivalTo:   z.coerce.date().optional(),
   hotelId:        z.string().optional(),
-  tourOperatorId: z.string().optional(),
+  tourOperatorId: z.union([z.string(), z.array(z.string())]).optional(),
   marketId:       z.string().optional(),
   resortId:       z.string().optional(),
   status:         zBookingStatus.optional(),
@@ -18,6 +18,17 @@ const dateRange = z.object({
   creditNote:     z.enum(["any", "remaining"]).optional(),
 });
 type DateRange = z.infer<typeof dateRange>;
+
+/**
+ * Operator filter — accepts a single id or a list (multi-select). Returns a
+ * Prisma equality for one id, an `in` clause for several, or undefined when
+ * the list is empty so the caller drops the filter entirely.
+ */
+function operatorFilter(v: string | string[]): string | { in: string[] } | undefined {
+  const ids = (Array.isArray(v) ? v : [v]).filter(Boolean);
+  if (ids.length === 0) return undefined;
+  return ids.length === 1 ? ids[0] : { in: ids };
+}
 
 
 @Controller("reports")
@@ -27,7 +38,7 @@ export class ReportsController {
   private baseWhere(q: DateRange, dateField: "arrivalDate" | "departureDate" | "paymentOptionDate" = "arrivalDate") {
     const where: any = { deletedAt: null };
     if (q.hotelId)        where.hotelId = q.hotelId;
-    if (q.tourOperatorId) where.tourOperatorId = q.tourOperatorId;
+    if (q.tourOperatorId) where.tourOperatorId = operatorFilter(q.tourOperatorId);
     if (q.marketId)       where.marketId = q.marketId;
     if (q.resortId)       where.resortId = q.resortId;
     if (q.status)         where.hotelStatus = q.status;
@@ -145,7 +156,7 @@ export class ReportsController {
   async hotelPayment(@Query(new ZodValidationPipe(dateRange)) q: DateRange) {
     const where: any = { deletedAt: null };
     if (q.hotelId)        where.hotelId = q.hotelId;
-    if (q.tourOperatorId) where.tourOperatorId = q.tourOperatorId;
+    if (q.tourOperatorId) where.tourOperatorId = operatorFilter(q.tourOperatorId);
     if (q.marketId)       where.marketId = q.marketId;
     if (q.resortId)       where.resortId = q.resortId;
     if (q.status)         where.hotelStatus = q.status;

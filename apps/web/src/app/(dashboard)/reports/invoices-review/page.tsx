@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { DateInput } from "@/components/ui/date-input";
 import { Button } from "@/components/ui/button";
-import { Combobox } from "@/components/ui/combobox";
+import { Combobox, MultiCombobox } from "@/components/ui/combobox";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
 import { ExportButtons } from "@/components/export-buttons";
@@ -42,22 +42,22 @@ export default function InvoicesReviewPage() {
   const lookups = useLookups();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [tourOperatorId, setTourOperatorId] = useState("");
+  const [tourOperatorIds, setTourOperatorIds] = useState<string[]>([]);
   const [status, setStatus] = useState("");
   const toOpts = lookupToOptions(lookups.data?.tourOperators);
   const statusOpts = lookups.data?.bookingStatuses ?? [];
-  const filters = { from, to, tourOperatorId, status };
+  const filters = { from, to, tourOperatorId: tourOperatorIds, status };
 
   const query = useQuery({
     queryKey: ["report-invoices-review", filters],
     queryFn: () => get<any[]>(`/reports/invoices-review${qs(filters)}`),
-    enabled: !!(from || to || tourOperatorId || status),
+    enabled: !!(from || to || tourOperatorIds.length || status),
   });
 
   const rows = query.data ?? [];
 
-  const hasFilters = !!(from || to || tourOperatorId || status);
-  const clearFilters = () => { setFrom(""); setTo(""); setTourOperatorId(""); setStatus(""); };
+  const hasFilters = !!(from || to || tourOperatorIds.length || status);
+  const clearFilters = () => { setFrom(""); setTo(""); setTourOperatorIds([]); setStatus(""); };
 
   const currencyTotals = CUR_FIELDS.map(([cur, c, s]) => ({
     currency: cur,
@@ -110,7 +110,7 @@ export default function InvoicesReviewPage() {
         <CardContent className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
           <Field label="Arrival From"><DateInput value={from} onChange={setFrom} /></Field>
           <Field label="Arrival To"><DateInput value={to} onChange={setTo} /></Field>
-          <Field label="Operator"><Combobox options={toOpts} value={tourOperatorId} onChange={setTourOperatorId} placeholder="Any" /></Field>
+          <Field label="Operator"><MultiCombobox options={toOpts} values={tourOperatorIds} onChange={setTourOperatorIds} placeholder="Any" /></Field>
           <Field label="Hotel Booking Status">
             <Combobox options={[{ value: "", label: "Any status" }, ...statusOpts]} value={status} onChange={setStatus} placeholder="Any status" />
           </Field>
@@ -125,7 +125,7 @@ export default function InvoicesReviewPage() {
 
       <Card>
         <CardContent className="p-0">
-          {!from && !to && !tourOperatorId && !status ? (
+          {!from && !to && !tourOperatorIds.length && !status ? (
             <EmptyState title="Set a filter" description="Select an arrival-date range, operator or booking status to load the report." />
           ) : query.isLoading ? <TableSkeleton rows={8} cols={13} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
