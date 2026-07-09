@@ -16,7 +16,7 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { AsyncCombobox } from "@/components/ui/async-combobox";
-import { Combobox } from "@/components/ui/combobox";
+import { Combobox, MultiCombobox } from "@/components/ui/combobox";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
@@ -35,7 +35,7 @@ interface StopSale {
 
 type Period = { qty: string; fullStop: boolean; fromDate: string; toDate: string };
 const blankPeriod = (): Period => ({ qty: "1", fullStop: false, fromDate: "", toDate: "" });
-const freshDraft = () => ({ id: "", hotelId: "", hotelLabel: "", hotelRoomTypeId: "", periods: [blankPeriod()] });
+const freshDraft = () => ({ id: "", hotelId: "", hotelLabel: "", hotelRoomTypeIds: [] as string[], periods: [blankPeriod()] });
 
 export default function StopSalePage() {
   const qc = useQueryClient();
@@ -58,7 +58,7 @@ export default function StopSalePage() {
   function openEdit(s: StopSale) {
     setDraft({
       id: s.id, hotelId: s.hotelId, hotelLabel: s.hotel?.name ?? "",
-      hotelRoomTypeId: s.hotelRoomTypeId ?? "",
+      hotelRoomTypeIds: s.hotelRoomTypeId ? [s.hotelRoomTypeId] : [],
       periods: [{
         fullStop: s.qty < 0,
         qty: s.qty < 0 ? "1" : String(s.qty),
@@ -84,13 +84,21 @@ export default function StopSalePage() {
       if (!p.fromDate || !p.toDate) { setError(`${prefix}from and to dates are required.`); return; }
       if (p.toDate < p.fromDate) { setError(`${prefix}to date must be on/after from date.`); return; }
     }
-    const items = draft.periods.map((p) => ({
-      hotelId: draft.hotelId,
-      hotelRoomTypeId: draft.hotelRoomTypeId || null,
-      qty: p.fullStop ? -1 : (Number(p.qty) || 1),
-      fromDate: p.fromDate,
-      toDate: p.toDate,
-    }));
+    // Empty selection = whole hotel (one null-room-type row); otherwise fan out one row per room type.
+    const roomTypeTargets: (string | null)[] = draft.hotelRoomTypeIds.length ? draft.hotelRoomTypeIds : [null];
+    const items = draft.periods.flatMap((p) =>
+      roomTypeTargets.map((rtId) => ({
+        hotelId: draft.hotelId,
+        hotelRoomTypeId: rtId,
+        qty: p.fullStop ? -1 : (Number(p.qty) || 1),
+        fromDate: p.fromDate,
+        toDate: p.toDate,
+      })),
+    );
+    if (!draft.id && items.length > 100) {
+      setError(`Too many blocks (${items.length}). Reduce room types or periods to 100 or fewer.`);
+      return;
+    }
     try {
       if (draft.id) await patch(`/stop-sales/${draft.id}`, items[0]);
       else await post("/stop-sales/bulk", { items });
@@ -162,12 +170,19 @@ export default function StopSalePage() {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Hotel" className="col-span-2">
               <AsyncCombobox fetcher={fetchHotelOptions} value={draft.hotelId} label={draft.hotelLabel}
-                onChange={(v, l) => setDraft((d) => ({ ...d, hotelId: v, hotelLabel: l, hotelRoomTypeId: "" }))} placeholder="Search hotel…" />
+                onChange={(v, l) => setDraft((d) => ({ ...d, hotelId: v, hotelLabel: l, hotelRoomTypeIds: [] }))} placeholder="Search hotel…" />
             </Field>
-            <Field label="Room Type (optional)" className="col-span-2" hint="Leave empty for the whole hotel">
-              <Combobox options={[{ value: "", label: "All room types" }, ...(roomTypes.data ?? [])]} value={draft.hotelRoomTypeId}
-                onChange={(v) => setDraft((d) => ({ ...d, hotelRoomTypeId: v }))} placeholder="All room types" disabled={!draft.hotelId} />
-            </Field>
+            {draft.id ? (
+              <Field label="Room Type (optional)" className="col-span-2" hint="Leave empty for the whole hotel">
+                <Combobox options={[{ value: "", label: "All room types" }, ...(roomTypes.data ?? [])]} value={draft.hotelRoomTypeIds[0] ?? ""}
+                  onChange={(v) => setDraft((d) => ({ ...d, hotelRoomTypeIds: v ? [v] : [] }))} placeholder="All room types" disabled={!draft.hotelId} />
+              </Field>
+            ) : (
+              <Field label="Room Types (optional)" className="col-span-2" hint="Leave empty to block the whole hotel; pick several to block multiple">
+                <MultiCombobox options={roomTypes.data ?? []} values={draft.hotelRoomTypeIds}
+                  onChange={(vs) => setDraft((d) => ({ ...d, hotelRoomTypeIds: vs }))} placeholder="All room types" disabled={!draft.hotelId} />
+              </Field>
+            )}
           </div>
 
           <div className="mt-3 space-y-3 max-h-[45vh] overflow-y-auto pr-1">
@@ -212,7 +227,11 @@ export default function StopSalePage() {
           <DialogFooter>
             <DialogClose asChild><Button variant="ghost" size="sm">Cancel</Button></DialogClose>
             <Button size="sm" onClick={save}>
-              {draft.id ? "Save" : draft.periods.length > 1 ? `Save ${draft.periods.length} periods` : "Save"}
+              {(() => {
+                if (draft.id) return "Save";
+                const blocks = draft.periods.length * (draft.hotelRoomTypeIds.length || 1);
+                return blocks > 1 ? `Save ${blocks} blocks` : "Save";
+              })()}
             </Button>
           </DialogFooter>
         </DialogContent>
