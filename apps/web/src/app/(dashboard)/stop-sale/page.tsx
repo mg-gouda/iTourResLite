@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { hasRole, fmtDate, type Role } from "@itour/shared";
 import { get, post, patch, del, ApiError } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
@@ -29,6 +29,7 @@ interface StopSale {
   qty: number;
   fromDate: string;
   toDate: string;
+  createdAt: string;
   hotel?: { name?: string };
   hotelRoomType?: { name?: string } | null;
 }
@@ -47,7 +48,32 @@ export default function StopSalePage() {
   const [draft, setDraft] = useState(freshDraft());
   const [error, setError] = useState<string | null>(null);
 
+  // List filters + created-date sort (applied client-side over the full list).
+  const [hotelFilter, setHotelFilter] = useState("");
+  const [fromFilter, setFromFilter] = useState("");
+  const [toFilter, setToFilter] = useState("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
   const list = useQuery({ queryKey: ["stop-sales"], queryFn: () => get<StopSale[]>("/stop-sales") });
+
+  const rows = useMemo(() => {
+    const data = list.data ?? [];
+    const hq = hotelFilter.trim().toLowerCase();
+    const filtered = data.filter((s) => {
+      if (hq && !(s.hotel?.name ?? "").toLowerCase().includes(hq)) return false;
+      // Overlap: keep blocks whose period intersects the selected range.
+      if (fromFilter && s.toDate.slice(0, 10) < fromFilter) return false;
+      if (toFilter && s.fromDate.slice(0, 10) > toFilter) return false;
+      return true;
+    });
+    return [...filtered].sort((a, b) => {
+      const cmp = (a.createdAt ?? "").localeCompare(b.createdAt ?? "");
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [list.data, hotelFilter, fromFilter, toFilter, sortDir]);
+
+  const hasFilters = !!(hotelFilter.trim() || fromFilter || toFilter);
+  function clearFilters() { setHotelFilter(""); setFromFilter(""); setToFilter(""); }
   const roomTypes = useQuery({
     queryKey: ["room-types", draft.hotelId],
     enabled: !!draft.hotelId && open,
@@ -123,30 +149,60 @@ export default function StopSalePage() {
         actions={canEdit ? <Button size="sm" onClick={openNew}><Plus className="size-4" /> New block</Button> : undefined}
       />
 
+      <Card className="mb-4">
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+          <Field label="Hotel name">
+            <Input value={hotelFilter} onChange={(e) => setHotelFilter(e.target.value)} placeholder="Search hotel…" />
+          </Field>
+          <Field label="Period from" hint="Blocks active on/after this date">
+            <DateInput value={fromFilter} onChange={setFromFilter} />
+          </Field>
+          <Field label="Period to" hint="Blocks active on/before this date">
+            <DateInput value={toFilter} onChange={setToFilter} />
+          </Field>
+          <Button variant="outline" size="sm" onClick={clearFilters} disabled={!hasFilters}>Clear filters</Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="p-0">
           {list.isLoading ? (
-            <TableSkeleton rows={6} cols={5} />
+            <TableSkeleton rows={6} cols={6} />
           ) : list.isError ? (
             <ErrorState error={list.error} onRetry={() => list.refetch()} />
           ) : !list.data || list.data.length === 0 ? (
             <EmptyState title="No stop-sale blocks" description={canEdit ? "Create one to remove inventory from sale." : undefined} />
+          ) : rows.length === 0 ? (
+            <EmptyState title="No matching blocks" description="No stop-sale blocks match the current filters." />
           ) : (
             <Table>
               <THead>
                 <TR>
                   <TH>Hotel</TH><TH>Room Type</TH><TH className="text-right">Qty</TH>
-                  <TH>From</TH><TH>To</TH>{canEdit && <TH className="text-right">Actions</TH>}
+                  <TH>From</TH><TH>To</TH>
+                  <TH>
+                    <button
+                      type="button"
+                      onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                      className="inline-flex items-center gap-1 hover:text-foreground"
+                      aria-label={`Sort by created date ${sortDir === "asc" ? "descending" : "ascending"}`}
+                    >
+                      Created
+                      {sortDir === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
+                    </button>
+                  </TH>
+                  {canEdit && <TH className="text-right">Actions</TH>}
                 </TR>
               </THead>
               <TBody>
-                {list.data.map((s) => (
+                {rows.map((s) => (
                   <TR key={s.id}>
                     <TD className="max-w-[16rem] truncate font-medium">{s.hotel?.name ?? "—"}</TD>
                     <TD className="text-muted-foreground">{s.hotelRoomType?.name ?? "All room types"}</TD>
                     <TD className="text-right tabular-nums">{s.qty < 0 ? "All" : s.qty}</TD>
                     <TD>{fmtDate(s.fromDate)}</TD>
                     <TD>{fmtDate(s.toDate)}</TD>
+                    <TD className="text-muted-foreground">{s.createdAt ? fmtDate(s.createdAt) : "—"}</TD>
                     {canEdit && (
                       <TD className="text-right">
                         <div className="flex justify-end gap-1">
