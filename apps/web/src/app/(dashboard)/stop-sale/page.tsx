@@ -48,32 +48,38 @@ export default function StopSalePage() {
   const [draft, setDraft] = useState(freshDraft());
   const [error, setError] = useState<string | null>(null);
 
-  // List filters + created-date sort (applied client-side over the full list).
-  const [hotelFilter, setHotelFilter] = useState("");
+  // List filters + column sort (applied client-side over the full list).
+  const [hotelIdFilter, setHotelIdFilter] = useState("");
+  const [hotelLabelFilter, setHotelLabelFilter] = useState("");
   const [fromFilter, setFromFilter] = useState("");
   const [toFilter, setToFilter] = useState("");
+  const [sortKey, setSortKey] = useState<"fromDate" | "toDate" | "createdAt">("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const list = useQuery({ queryKey: ["stop-sales"], queryFn: () => get<StopSale[]>("/stop-sales") });
 
   const rows = useMemo(() => {
     const data = list.data ?? [];
-    const hq = hotelFilter.trim().toLowerCase();
     const filtered = data.filter((s) => {
-      if (hq && !(s.hotel?.name ?? "").toLowerCase().includes(hq)) return false;
+      if (hotelIdFilter && s.hotelId !== hotelIdFilter) return false;
       // Overlap: keep blocks whose period intersects the selected range.
       if (fromFilter && s.toDate.slice(0, 10) < fromFilter) return false;
       if (toFilter && s.fromDate.slice(0, 10) > toFilter) return false;
       return true;
     });
     return [...filtered].sort((a, b) => {
-      const cmp = (a.createdAt ?? "").localeCompare(b.createdAt ?? "");
+      const cmp = (a[sortKey] ?? "").localeCompare(b[sortKey] ?? "");
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [list.data, hotelFilter, fromFilter, toFilter, sortDir]);
+  }, [list.data, hotelIdFilter, fromFilter, toFilter, sortKey, sortDir]);
 
-  const hasFilters = !!(hotelFilter.trim() || fromFilter || toFilter);
-  function clearFilters() { setHotelFilter(""); setFromFilter(""); setToFilter(""); }
+  function toggleSort(key: "fromDate" | "toDate" | "createdAt") {
+    if (sortKey === key) { setSortDir((d) => (d === "asc" ? "desc" : "asc")); }
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+
+  const hasFilters = !!(hotelIdFilter || fromFilter || toFilter);
+  function clearFilters() { setHotelIdFilter(""); setHotelLabelFilter(""); setFromFilter(""); setToFilter(""); }
   const roomTypes = useQuery({
     queryKey: ["room-types", draft.hotelId],
     enabled: !!draft.hotelId && open,
@@ -151,8 +157,9 @@ export default function StopSalePage() {
 
       <Card className="mb-4">
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
-          <Field label="Hotel name">
-            <Input value={hotelFilter} onChange={(e) => setHotelFilter(e.target.value)} placeholder="Search hotel…" />
+          <Field label="Hotel name" hint="Search for a hotel to filter">
+            <AsyncCombobox fetcher={fetchHotelOptions} value={hotelIdFilter} label={hotelLabelFilter}
+              onChange={(v, l) => { setHotelIdFilter(v); setHotelLabelFilter(l); }} placeholder="Search hotel…" />
           </Field>
           <Field label="Period from" hint="Blocks active on/after this date">
             <DateInput value={fromFilter} onChange={setFromFilter} />
@@ -179,18 +186,19 @@ export default function StopSalePage() {
               <THead>
                 <TR>
                   <TH>Hotel</TH><TH>Room Type</TH><TH className="text-right">Qty</TH>
-                  <TH>From</TH><TH>To</TH>
-                  <TH>
-                    <button
-                      type="button"
-                      onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                      aria-label={`Sort by created date ${sortDir === "asc" ? "descending" : "ascending"}`}
-                    >
-                      Created
-                      {sortDir === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
-                    </button>
-                  </TH>
+                  {([["fromDate", "From"], ["toDate", "To"], ["createdAt", "Created"]] as const).map(([key, label]) => (
+                    <TH key={key}>
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(key)}
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                        aria-label={`Sort by ${label} ${sortKey === key && sortDir === "asc" ? "descending" : "ascending"}`}
+                      >
+                        {label}
+                        {sortKey === key && (sortDir === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />)}
+                      </button>
+                    </TH>
+                  ))}
                   {canEdit && <TH className="text-right">Actions</TH>}
                 </TR>
               </THead>
