@@ -47,8 +47,8 @@ export default function HotelPaymentPage() {
   const hasFilters = !!(from || to || arrivalFrom || arrivalTo || hotelId || status || paid || creditNote);
   const clearFilters = () => { setFrom(""); setTo(""); setArrivalFrom(""); setArrivalTo(""); setHotelId(""); setHotelLabel(""); setStatus(""); setPaid(""); setCreditNote(""); };
 
-  const EXPORT_COLS = ["Operator Ref", "Hotel", "Status", "Cost USD", "Cost EUR", "Cost EGP", "Paid", "Balance", "Credit Note", "Payment Option", "Payment", "Paid Date"];
-  const EXPORT_ALIGNS = ["left", "left", "left", "right", "right", "right", "right", "right", "right", "left", "left", "left"] as ("left" | "right")[];
+  const EXPORT_COLS = ["Operator Ref", "Hotel", "Status", "Arrival", "Departure", "Nights", "Cost USD", "Cost EUR", "Cost EGP", "Paid", "Balance", "Credit Note", "Payment Option", "Payment", "Paid Date"];
+  const EXPORT_ALIGNS = ["left", "left", "left", "left", "left", "right", "right", "right", "right", "right", "right", "right", "left", "left", "left"] as ("left" | "right")[];
 
   const payLabel = (b: any) => (b.bookingPaid ? "Paid" : b.paidTotal > 0 ? "Partial" : "Unpaid");
   const cnCurrency = (b: any) => b.creditNotes?.[0]?.currency ?? b.paidCurrency;
@@ -74,6 +74,7 @@ export default function HotelPaymentPage() {
       aligns: EXPORT_ALIGNS,
       rows: rows.map((b) => [
         b.toBookingRef, b.hotel?.name ?? "", b.hotelStatus,
+        fmtDate(b.arrivalDate), fmtDate(b.departureDate), b.nights ?? "",
         Number(b.costUsd), Number(b.costEur), Number(b.costEgp),
         formatMoney(b.paidTotal ?? 0, b.paidCurrency), formatMoney(b.balance ?? 0, b.paidCurrency),
         b.creditNoteRemaining ? formatMoney(b.creditNoteRemaining, cnCurrency(b)) : "—",
@@ -138,7 +139,7 @@ export default function HotelPaymentPage() {
         <CardContent className="p-0">
           {!from && !to && !arrivalFrom && !arrivalTo && !hotelId && !status && !paid && !creditNote ? (
             <EmptyState title="Set a filter" description="Select an arrival- or paid-date range, hotel, payment status, credit-note or booking status to load the report." />
-          ) : query.isLoading ? <TableSkeleton rows={8} cols={12} />
+          ) : query.isLoading ? <TableSkeleton rows={8} cols={15} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !rows.length ? <EmptyState title="No bookings" />
           : (
@@ -147,6 +148,7 @@ export default function HotelPaymentPage() {
                 <THead>
                   <TR>
                     <TH>Operator Ref</TH><TH>Hotel</TH><TH>Status</TH>
+                    <TH>Arrival</TH><TH>Departure</TH><TH className="text-right">Nights</TH>
                     <TH className="text-right">Cost USD</TH><TH className="text-right">Cost EUR</TH><TH className="text-right">Cost EGP</TH>
                     <TH className="text-right">Paid</TH><TH className="text-right">Balance</TH><TH className="text-right">Credit Note</TH>
                     <TH>Payment Option</TH><TH>Payment</TH><TH>Paid Date</TH>
@@ -158,6 +160,9 @@ export default function HotelPaymentPage() {
                       <TD className="font-medium">{b.toBookingRef}</TD>
                       <TD className="max-w-[12rem] truncate">{b.hotel?.name}</TD>
                       <TD>{b.hotelStatus}</TD>
+                      <TD>{fmtDate(b.arrivalDate)}</TD>
+                      <TD>{fmtDate(b.departureDate)}</TD>
+                      <TD className="text-right tabular-nums">{b.nights ?? "—"}</TD>
                       <TD className="text-right tabular-nums">{formatMoney(b.costUsd, "USD")}</TD>
                       <TD className="text-right tabular-nums">{formatMoney(b.costEur, "EUR")}</TD>
                       <TD className="text-right tabular-nums">{formatMoney(b.costEgp, "EGP")}</TD>

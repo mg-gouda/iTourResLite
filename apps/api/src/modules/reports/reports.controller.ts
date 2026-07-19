@@ -1,6 +1,6 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { z } from "zod";
-import { zBookingStatus, computePaidTotals, round2 } from "@itour/shared";
+import { zBookingStatus, computePaidTotals, round2, nights } from "@itour/shared";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -186,6 +186,7 @@ export class ReportsController {
       orderBy: [{ paidDate: "desc" }, { arrivalDate: "asc" }],
       select: {
         id: true, toBookingRef: true, hotelStatus: true, bookingCurrency: true,
+        arrivalDate: true, departureDate: true,
         costUsd: true, costEur: true, costEgp: true,
         paymentOptionDate: true, bookingPaid: true, paidDate: true,
         paymentProofName: true,
@@ -216,6 +217,7 @@ export class ReportsController {
       const { payments, creditNotes: _cn, ...rest } = b as any;
       return {
         ...rest,
+        nights: nights(b.arrivalDate, b.departureDate),
         paidCurrency: totals.currency,
         paidTotal: totals.paid,
         balance: totals.balance,
