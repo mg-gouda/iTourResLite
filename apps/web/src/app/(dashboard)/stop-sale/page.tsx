@@ -7,6 +7,7 @@ import { hasRole, fmtDate, type Role } from "@itour/shared";
 import { get, post, patch, del, ApiError } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { useConfirm } from "@/components/dialog-provider";
+import { useToast } from "@/components/toast-provider";
 import { fetchHotelOptions, fetchRoomTypeOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,6 +43,7 @@ export default function StopSalePage() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const confirm = useConfirm();
+  const toast = useToast();
   const canEdit = hasRole((user?.role ?? "VIEWER") as Role, "MANAGER");
 
   const [open, setOpen] = useState(false);
@@ -136,15 +138,34 @@ export default function StopSalePage() {
       else await post("/stop-sales/bulk", { items });
       await qc.invalidateQueries({ queryKey: ["stop-sales"] });
       setOpen(false);
+      if (draft.id) {
+        toast.success("Stop-sale updated", { message: `${draft.hotelLabel || "The block"} was updated successfully.` });
+      } else {
+        toast.success(
+          items.length > 1 ? `${items.length} stop-sale blocks added` : "Stop-sale added",
+          { message: `${draft.hotelLabel || "Inventory"} was blocked successfully.` },
+        );
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save.");
     }
   }
 
-  async function remove(id: string) {
-    if (!await confirm("Delete this stop-sale block?")) return;
-    await del(`/stop-sales/${id}`);
-    await qc.invalidateQueries({ queryKey: ["stop-sales"] });
+  async function remove(s: StopSale) {
+    const label = s.hotel?.name ?? "this hotel";
+    const room = s.hotelRoomType?.name ?? "all room types";
+    const ok = await confirm(
+      `This permanently deletes the stop-sale block for ${label} (${room}, ${fmtDate(s.fromDate)} – ${fmtDate(s.toDate)}) and reopens that inventory for sale. This action cannot be undone.`,
+      "Delete stop-sale block?",
+    );
+    if (!ok) return;
+    try {
+      await del(`/stop-sales/${s.id}`);
+      await qc.invalidateQueries({ queryKey: ["stop-sales"] });
+      toast.success("Stop-sale deleted", { message: `Inventory for ${label} was reopened.` });
+    } catch (err) {
+      toast.error("Could not delete stop-sale", { message: err instanceof ApiError ? err.message : "Please try again." });
+    }
   }
 
   return (
@@ -215,7 +236,7 @@ export default function StopSalePage() {
                       <TD className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" aria-label="Edit" onClick={() => openEdit(s)}><Pencil className="size-4" /></Button>
-                          <Button variant="ghost" size="icon" aria-label="Delete" onClick={() => remove(s.id)}><Trash2 className="size-4 text-destructive" /></Button>
+                          <Button variant="ghost" size="icon" aria-label="Delete" onClick={() => remove(s)}><Trash2 className="size-4 text-destructive" /></Button>
                         </div>
                       </TD>
                     )}

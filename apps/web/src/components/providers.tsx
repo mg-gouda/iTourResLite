@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DialogProvider } from "@/components/dialog-provider";
+import { ToastProvider } from "@/components/toast-provider";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -24,7 +25,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={client}>
-      <DialogProvider>{children}</DialogProvider>
+      <ToastProvider>
+        <DialogProvider>{children}</DialogProvider>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

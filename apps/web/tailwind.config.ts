@@ -61,10 +61,15 @@ const config: Config = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.4" },
         },
+        "toast-in": {
+          from: { opacity: "0", transform: "translateX(12px) scale(0.98)" },
+          to: { opacity: "1", transform: "translateX(0) scale(1)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.2s ease-out",
         "pulse-soft": "pulse-soft 1.6s ease-in-out infinite",
+        "toast-in": "toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },

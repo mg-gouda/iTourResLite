@@ -13,6 +13,7 @@ import {
 import { get, post, patch, del, ApiError, API } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { useConfirm } from "@/components/dialog-provider";
+import { useToast } from "@/components/toast-provider";
 import { useLookups, lookupToOptions, fetchHotelOptions, fetchRoomTypeOptions } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -145,6 +146,7 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const confirm = useConfirm();
+  const toast = useToast();
   const role = (user?.role ?? "VIEWER") as Role;
   const isAccountant = role === "ACCOUNTANT";
   const isViewer = role === "VIEWER";
@@ -535,11 +537,16 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
   async function submitPayload(payload: Record<string, unknown>) {
     setSaving(true);
     try {
+      const isUpdate = !!bookingId;
       const saved = bookingId
         ? await patch<any>(`/bookings/${bookingId}`, payload)
         : await post<any>("/bookings", payload);
       if (saved.internalRef) setInternalRef(saved.internalRef);
       await qc.invalidateQueries({ queryKey: ["bookings"] });
+      const ref = saved.internalRef ?? saved.toBookingRef ?? form.toBookingRef;
+      toast.success(isUpdate ? "Booking updated" : "Booking created", {
+        message: ref ? `Reference ${ref} saved successfully.` : "Your changes were saved successfully.",
+      });
       router.push(`/bookings/${saved.id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409 && (err.details as any)?.conflicts) {
@@ -593,13 +600,21 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
   }
 
   async function onDelete() {
-    if (!bookingId || !await confirm("Delete this booking?")) return;
+    if (!bookingId) return;
+    const ok = await confirm(
+      "This permanently cancels and deletes the booking, including its guests and payments. This action cannot be undone.",
+      "Cancel this booking?",
+    );
+    if (!ok) return;
     try {
       await del(`/bookings/${bookingId}`);
       await qc.invalidateQueries({ queryKey: ["bookings"] });
+      toast.success("Booking cancelled", { message: "The booking was deleted successfully." });
       router.push("/bookings");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to delete.");
+      const msg = err instanceof ApiError ? err.message : "Failed to delete.";
+      setError(msg);
+      toast.error("Could not cancel booking", { message: msg });
     }
   }
 
