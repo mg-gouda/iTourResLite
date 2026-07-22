@@ -87,6 +87,34 @@ function calcAge(dob: string, arrivalDate: string): number | null {
   return age >= 0 ? age : null;
 }
 
+// Per-room cost totals, parsed from a saved cost-calculation formula string.
+// Segments look like: "Rm1(DBL): (170×2adl×3nts) = 1020.00".
+function parseRoomCosts(formula: string): number[] {
+  if (!formula) return [];
+  const rooms: { idx: number; val: number }[] = [];
+  for (const seg of formula.split("|")) {
+    const m = /^\s*Rm(\d+)\([^)]*\):.*?=\s*([\d.]+)\s*$/.exec(seg);
+    if (m) rooms.push({ idx: parseInt(m[1], 10), val: parseFloat(m[2]) });
+  }
+  rooms.sort((a, b) => a.idx - b.idx);
+  return rooms.map((r) => r.val);
+}
+
+// Split `total` (selling) across rooms in proportion to `weights` (per-room cost),
+// so higher-cost rooms carry a higher selling price and the profit is spread the
+// same way. Falls back to an even split when the cost breakdown is unavailable.
+// Rounds to cents and puts any rounding drift on the last room so the sum is exact.
+function distributeByWeight(total: number, weights: number[], numRooms: number): number[] {
+  const n = Math.max(1, numRooms);
+  const w = weights.length === n && weights.some((x) => x > 0)
+    ? weights : Array.from({ length: n }, () => 1);
+  const sum = w.reduce((a, b) => a + b, 0) || n;
+  const out = w.map((x) => Math.round((total * x / sum) * 100) / 100);
+  const drift = Math.round((total - out.reduce((a, b) => a + b, 0)) * 100) / 100;
+  out[out.length - 1] = Math.round((out[out.length - 1] + drift) * 100) / 100;
+  return out;
+}
+
 function RateHistoryIcon({ history }: { history: RateChangeEntry[] }) {
   const [open, setOpen] = useState(false);
   if (!history.length) return null;
@@ -445,8 +473,18 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
     const numRooms = Math.max(1, num(form.numRooms));
     const catLabel = (code: string) => (lookups.data?.roomCategories ?? []).find((o) => o.value === code)?.label ?? code;
 
+    // Per-room selling amounts: distribute the selling total in proportion to each
+    // room's cost (from the cost-calculation formula), so the profit is spread the
+    // same way rather than split evenly. Falls back to an even split if no breakdown.
+    const costFormula = currency === "EUR" ? form.calculationEur
+      : currency === "EGP" ? form.calculationEgp : form.calculationUsd;
+    const roomCosts = parseRoomCosts(costFormula);
+    const roomAmounts = distributeByWeight(sellingTotal, roomCosts, numRooms);
+    const relativePricing = roomCosts.length === numRooms && roomCosts.some((x) => x > 0);
+
     return {
       currency, sellingTotal, roomTypeLabel, mealBasisLabel, nationality, numRooms, catLabel,
+      roomAmounts, relativePricing,
       issueDate: TODAY,
       dueDate: minusDays(form.paymentOptionDate, 3),
       invoiceBase: internalRef ? `SAL-${TODAY.slice(0, 4)}-${internalRef}` : `SAL-${TODAY.slice(0, 4)}-${(bookingId ?? "").slice(-6)}`,
@@ -477,12 +515,12 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
     };
   }
 
-  // Single invoice covering the whole booking — one item line per room.
+  // Single invoice covering the whole booking — one item line per room, each
+  // priced by its relative share of the cost (see invoiceContext.roomAmounts).
   function issueCombinedInvoice() {
     const ctx = invoiceContext();
-    const perRoom = ctx.sellingTotal / ctx.numRooms;
     const multi = ctx.numRooms > 1;
-    const lines: InvoiceLine[] = Array.from({ length: ctx.numRooms }, (_, i) => invoiceLine(ctx, i, perRoom, multi));
+    const lines: InvoiceLine[] = Array.from({ length: ctx.numRooms }, (_, i) => invoiceLine(ctx, i, ctx.roomAmounts[i] ?? 0, multi));
     const guestNames = guestNamesForRoom(null);
     const invoice: InvoiceData = {
       invoiceNo: ctx.invoiceBase,
@@ -496,30 +534,29 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
     };
     const blocked = openInvoices([invoice]);
     if (blocked) notify(false, "Invoice popup was blocked — please allow pop-ups for this site.");
+    else if (multi && !ctx.relativePricing) notify(true, "No per-room cost breakdown found — rooms were priced with an even split.");
     setInvoiceChoiceOpen(false);
   }
 
-  // One invoice per room (separate PDFs), each billed to that room's guests.
-  function issuePerRoomInvoices() {
+  // Invoice for one specific room (chosen by the user), priced by its cost share.
+  function issueRoomInvoice(roomIdx: number) {
     const ctx = invoiceContext();
-    const perRoom = ctx.sellingTotal / ctx.numRooms;
-    const invoices: InvoiceData[] = Array.from({ length: ctx.numRooms }, (_, i) => {
-      const roomGuests = guestNamesForRoom(i + 1);
-      const fallback = guestNamesForRoom(null).slice(0, 1);
-      const guestNames = roomGuests.length ? roomGuests : fallback;
-      return {
-        invoiceNo: ctx.numRooms > 1 ? `${ctx.invoiceBase}-R${i + 1}` : ctx.invoiceBase,
-        currency: ctx.currency,
-        issueDate: ctx.issueDate,
-        dueDate: ctx.dueDate,
-        billToName: guestNames[0] ?? "",
-        guestNames,
-        lines: [invoiceLine(ctx, i, perRoom, false)],
-        discountPercent: ebdFraction,
-      };
-    });
-    const blocked = openInvoices(invoices);
-    if (blocked) notify(false, `${blocked} invoice popup(s) blocked — please allow pop-ups for this site.`);
+    const roomGuests = guestNamesForRoom(roomIdx + 1);
+    const fallback = guestNamesForRoom(null).slice(0, 1);
+    const guestNames = roomGuests.length ? roomGuests : fallback;
+    const invoice: InvoiceData = {
+      invoiceNo: ctx.numRooms > 1 ? `${ctx.invoiceBase}-R${roomIdx + 1}` : ctx.invoiceBase,
+      currency: ctx.currency,
+      issueDate: ctx.issueDate,
+      dueDate: ctx.dueDate,
+      billToName: guestNames[0] ?? "",
+      guestNames,
+      lines: [invoiceLine(ctx, roomIdx, ctx.roomAmounts[roomIdx] ?? 0, false)],
+      discountPercent: ebdFraction,
+    };
+    const blocked = openInvoices([invoice]);
+    if (blocked) notify(false, "Invoice popup was blocked — please allow pop-ups for this site.");
+    else if (ctx.numRooms > 1 && !ctx.relativePricing) notify(true, "No per-room cost breakdown found — room priced with an even split.");
     setInvoiceChoiceOpen(false);
   }
 
@@ -1909,15 +1946,23 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
           <Button type="button" variant="outline" className="justify-start h-auto py-3" onClick={issueCombinedInvoice}>
             <div className="text-left">
               <div className="font-medium">One invoice for the whole booking</div>
-              <div className="text-xs text-muted-foreground">All rooms on a single invoice — one line item per room.</div>
+              <div className="text-xs text-muted-foreground">All rooms on a single invoice — one line item per room, priced by each room&apos;s cost share.</div>
             </div>
           </Button>
-          <Button type="button" variant="outline" className="justify-start h-auto py-3" onClick={issuePerRoomInvoices}>
-            <div className="text-left">
-              <div className="font-medium">Separate invoice per room</div>
-              <div className="text-xs text-muted-foreground">One printable invoice per room, billed to that room&apos;s guests.</div>
-            </div>
-          </Button>
+          <div className="pt-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">Or a separate invoice for one room</div>
+          {Array.from({ length: Math.max(1, num(form.numRooms)) }).map((_, i) => {
+            const g = guestNamesForRoom(i + 1);
+            const cat = roomCats[i] ?? form.roomCategory;
+            const cLabel = (lookups.data?.roomCategories ?? []).find((o) => o.value === cat)?.label ?? cat;
+            return (
+              <Button key={i} type="button" variant="outline" className="justify-start h-auto py-3" onClick={() => issueRoomInvoice(i)}>
+                <div className="text-left">
+                  <div className="font-medium">Room {i + 1} · {cLabel}</div>
+                  <div className="text-xs text-muted-foreground">{g.length ? g.join(", ") : "No guests assigned"}</div>
+                </div>
+              </Button>
+            );
+          })}
         </div>
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={() => setInvoiceChoiceOpen(false)}>Cancel</Button>
