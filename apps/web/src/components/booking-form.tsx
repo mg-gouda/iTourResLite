@@ -28,7 +28,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/ui/states";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { BookingPaymentsSection } from "@/components/booking-payments";
-import { openInvoice } from "@/lib/invoice";
+import { openInvoices, type InvoiceData, type InvoiceLine } from "@/lib/invoice";
 
 type S = Record<string, string>;
 
@@ -416,51 +416,117 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
   }
 
   // ── Invoice (print → PDF) ────────────────────────────────────────────────────
-  function handleInvoice() {
+  const [invoiceChoiceOpen, setInvoiceChoiceOpen] = useState(false);
+
+  // Due date = 3 days before the Payment Option Date (fallback: today).
+  function minusDays(iso: string, n: number): string {
+    if (!iso) return TODAY;
+    const d = new Date(`${iso}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Shared invoice fields derived from the current booking.
+  function invoiceContext() {
     // Currency + selling amount. GBP shares the USD selling field (see onCurrencyChange).
-    let curr = form.bookingCurrency;
-    if (!curr) {
-      curr = num(form.sellingEur) ? "EUR" : num(form.sellingEgp) ? "EGP" : "USD";
+    let currency = form.bookingCurrency;
+    if (!currency) {
+      currency = num(form.sellingEur) ? "EUR" : num(form.sellingEgp) ? "EGP" : "USD";
     }
-    const selling = curr === "EUR" ? num(form.sellingEur)
-      : curr === "EGP" ? num(form.sellingEgp) : num(form.sellingUsd);
+    const sellingTotal = currency === "EUR" ? num(form.sellingEur)
+      : currency === "EGP" ? num(form.sellingEgp) : num(form.sellingUsd);
 
     const roomTypeLabel = (roomTypes.data ?? []).find((o) => o.value === form.hotelRoomTypeId)?.label ?? "";
-    const roomCategoryLabel = (lookups.data?.roomCategories ?? []).find((o) => o.value === form.roomCategory)?.label ?? form.roomCategory;
     const mealBasisLabel = (lookups.data?.mealBases ?? []).find((o) => o.value === form.mealBasis)?.label ?? form.mealBasis;
     const market = (lookups.data?.markets ?? []).find((m) => m.id === form.marketId);
-    const nationality = market ? (market.name ?? market.code) : "";
+    // Dynamic nationality: market name + alias (code), e.g. "Egyptian (EGY)".
+    const nationality = market ? (market.name ? `${market.name} (${market.code})` : market.code) : "";
 
-    const guests = guestList
-      .filter((g) => g.type === "HOTEL" && g.name.trim())
-      .map((g) => `${g.title ? g.title + " " : ""}${g.name.trim()}`);
-    const guestNames = guests.length
-      ? guests
-      : guestList.filter((g) => g.name.trim()).map((g) => `${g.title ? g.title + " " : ""}${g.name.trim()}`);
+    const numRooms = Math.max(1, num(form.numRooms));
+    const catLabel = (code: string) => (lookups.data?.roomCategories ?? []).find((o) => o.value === code)?.label ?? code;
 
-    const invoiceNo = internalRef ? `SAL-${TODAY.slice(0, 4)}-${internalRef}` : `SAL-${TODAY.slice(0, 4)}-${(bookingId ?? "").slice(-6)}`;
-
-    openInvoice({
-      invoiceNo,
-      currency: curr,
+    return {
+      currency, sellingTotal, roomTypeLabel, mealBasisLabel, nationality, numRooms, catLabel,
       issueDate: TODAY,
-      dueDate: form.paymentOptionDate || TODAY,
+      dueDate: minusDays(form.paymentOptionDate, 3),
+      invoiceBase: internalRef ? `SAL-${TODAY.slice(0, 4)}-${internalRef}` : `SAL-${TODAY.slice(0, 4)}-${(bookingId ?? "").slice(-6)}`,
+    };
+  }
+
+  function guestNamesForRoom(room: number | null): string[] {
+    const rows = guestList.filter((g) => g.name.trim() && (room == null || (g.type === "HOTEL" && g.room === room)));
+    const src = rows.length || room == null ? rows : guestList.filter((g) => g.name.trim());
+    return src.map((g) => `${g.title ? g.title + " " : ""}${g.name.trim()}`);
+  }
+
+  // Build one invoice line for a given room (0-based index); amount = that room's share.
+  function invoiceLine(ctx: ReturnType<typeof invoiceContext>, roomIdx: number, amount: number, withRoomLabel: boolean): InvoiceLine {
+    const cat = roomCats[roomIdx] ?? form.roomCategory;
+    return {
+      hotelName: hotelLabel,
+      roomTypeLabel: ctx.roomTypeLabel,
+      roomCategoryLabel: ctx.catLabel(cat),
+      mealBasisLabel: ctx.mealBasisLabel,
+      nationality: ctx.nationality,
+      arrivalDate: form.arrivalDate,
+      departureDate: form.departureDate,
+      nights: derived.nights,
+      qty: 1,
+      amount,
+      roomLabel: withRoomLabel ? `Room ${roomIdx + 1}` : undefined,
+    };
+  }
+
+  // Single invoice covering the whole booking — one item line per room.
+  function issueCombinedInvoice() {
+    const ctx = invoiceContext();
+    const perRoom = ctx.sellingTotal / ctx.numRooms;
+    const multi = ctx.numRooms > 1;
+    const lines: InvoiceLine[] = Array.from({ length: ctx.numRooms }, (_, i) => invoiceLine(ctx, i, perRoom, multi));
+    const guestNames = guestNamesForRoom(null);
+    const invoice: InvoiceData = {
+      invoiceNo: ctx.invoiceBase,
+      currency: ctx.currency,
+      issueDate: ctx.issueDate,
+      dueDate: ctx.dueDate,
       billToName: guestNames[0] ?? "",
       guestNames,
-      line: {
-        hotelName: hotelLabel,
-        roomTypeLabel,
-        roomCategoryLabel,
-        mealBasisLabel,
-        nationality,
-        arrivalDate: form.arrivalDate,
-        departureDate: form.departureDate,
-        nights: derived.nights,
-        qty: Math.max(1, num(form.numRooms)),
-      },
-      sellingTotal: selling,
+      lines,
       discountPercent: ebdFraction,
+    };
+    const blocked = openInvoices([invoice]);
+    if (blocked) notify(false, "Invoice popup was blocked — please allow pop-ups for this site.");
+    setInvoiceChoiceOpen(false);
+  }
+
+  // One invoice per room (separate PDFs), each billed to that room's guests.
+  function issuePerRoomInvoices() {
+    const ctx = invoiceContext();
+    const perRoom = ctx.sellingTotal / ctx.numRooms;
+    const invoices: InvoiceData[] = Array.from({ length: ctx.numRooms }, (_, i) => {
+      const roomGuests = guestNamesForRoom(i + 1);
+      const fallback = guestNamesForRoom(null).slice(0, 1);
+      const guestNames = roomGuests.length ? roomGuests : fallback;
+      return {
+        invoiceNo: ctx.numRooms > 1 ? `${ctx.invoiceBase}-R${i + 1}` : ctx.invoiceBase,
+        currency: ctx.currency,
+        issueDate: ctx.issueDate,
+        dueDate: ctx.dueDate,
+        billToName: guestNames[0] ?? "",
+        guestNames,
+        lines: [invoiceLine(ctx, i, perRoom, false)],
+        discountPercent: ebdFraction,
+      };
     });
+    const blocked = openInvoices(invoices);
+    if (blocked) notify(false, `${blocked} invoice popup(s) blocked — please allow pop-ups for this site.`);
+    setInvoiceChoiceOpen(false);
+  }
+
+  function handleInvoice() {
+    // Multi-room bookings prompt for how to split; single-room issues directly.
+    if (Math.max(1, num(form.numRooms)) > 1) setInvoiceChoiceOpen(true);
+    else issueCombinedInvoice();
   }
 
   // Partition the stay across up to two rate periods. Returns whole nights for each.
@@ -1824,6 +1890,37 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
             {saving ? <Spinner className="size-4" /> : <AlertTriangle className="size-4" />}
             Override &amp; Save
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Invoice: how to split a multi-room booking */}
+    <Dialog open={invoiceChoiceOpen} onOpenChange={setInvoiceChoiceOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="size-5 text-primary" /> Issue Invoice
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground -mt-1">
+          This booking holds {Math.max(1, num(form.numRooms))} rooms. How would you like to issue the invoice?
+        </p>
+        <div className="flex flex-col gap-2">
+          <Button type="button" variant="outline" className="justify-start h-auto py-3" onClick={issueCombinedInvoice}>
+            <div className="text-left">
+              <div className="font-medium">One invoice for the whole booking</div>
+              <div className="text-xs text-muted-foreground">All rooms on a single invoice — one line item per room.</div>
+            </div>
+          </Button>
+          <Button type="button" variant="outline" className="justify-start h-auto py-3" onClick={issuePerRoomInvoices}>
+            <div className="text-left">
+              <div className="font-medium">Separate invoice per room</div>
+              <div className="text-xs text-muted-foreground">One printable invoice per room, billed to that room&apos;s guests.</div>
+            </div>
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" size="sm" onClick={() => setInvoiceChoiceOpen(false)}>Cancel</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

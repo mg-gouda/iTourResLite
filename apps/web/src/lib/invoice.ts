@@ -6,28 +6,29 @@ import { formatMoney } from "@itour/shared";
 // self-contained — no network fetch inside the popup print window.
 import { FULVAGO_LOGO_DATA_URI } from "./invoice-logo";
 
-export interface InvoiceLineData {
+export interface InvoiceLine {
   hotelName: string;
-  roomTypeLabel: string;    // e.g. "Single Room"
+  roomTypeLabel: string;     // e.g. "Single Room"
   roomCategoryLabel: string; // occupancy, e.g. "Single"
-  mealBasisLabel: string;   // e.g. "Soft All Inc"
-  nationality: string;      // market name (may be "")
-  arrivalDate: string;      // ISO yyyy-mm-dd
-  departureDate: string;    // ISO yyyy-mm-dd
+  mealBasisLabel: string;    // e.g. "Soft All Inc"
+  nationality: string;       // market name + alias, e.g. "Egyptian (EGY)"
+  arrivalDate: string;       // ISO yyyy-mm-dd
+  departureDate: string;     // ISO yyyy-mm-dd
   nights: number;
-  qty: number;              // number of rooms
+  qty: number;               // rooms represented by this line
+  amount: number;            // line amount (selling), booking currency
+  roomLabel?: string;        // e.g. "Room 1" (multi-room, all-in-one invoice)
 }
 
 export interface InvoiceData {
   invoiceNo: string;
-  currency: string;         // USD / EUR / EGP / GBP
-  issueDate: string;        // ISO yyyy-mm-dd
-  dueDate: string;          // ISO yyyy-mm-dd
-  billToName: string;       // lead guest (title + name)
-  guestNames: string[];     // all guest names (lead first)
-  line: InvoiceLineData;
-  sellingTotal: number;     // total selling amount, booking currency
-  discountPercent: number;  // 0..1 (0 = no discount row)
+  currency: string;          // USD / EUR / EGP / GBP
+  issueDate: string;         // ISO yyyy-mm-dd
+  dueDate: string;           // ISO yyyy-mm-dd
+  billToName: string;        // lead guest (title + name)
+  guestNames: string[];      // all guest names (lead first)
+  lines: InvoiceLine[];
+  discountPercent: number;   // 0..1 (0 = no discount row)
 }
 
 const esc = (s: string) =>
@@ -46,35 +47,51 @@ function longDate(iso: string): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
 }
 
-function buildDescription(l: InvoiceLineData): string {
+function buildDescription(l: InvoiceLine): string {
   const room = [l.roomTypeLabel, l.roomCategoryLabel && l.roomCategoryLabel !== l.roomTypeLabel ? `(${l.roomCategoryLabel})` : ""]
     .filter(Boolean).join(" ");
   const nightsTxt = `${l.nights}x night${l.nights === 1 ? "" : "s"}`;
   const parts = [
-    room ? `${room}` : "Accommodation",
+    l.roomLabel ? `${l.roomLabel}:` : "",
+    room || "Accommodation",
     l.mealBasisLabel ? `on ${l.mealBasisLabel} Basis` : "",
     l.hotelName ? `at ${l.hotelName}` : "",
   ].filter(Boolean).join(" ");
   return `${parts}, ${nightsTxt}`;
 }
 
+function renderLine(l: InvoiceLine, money: (n: number) => string): string {
+  const qty = l.qty > 0 ? l.qty : 1;
+  const unitPrice = l.amount / qty;
+  const subLines = [
+    `Arrival Date: ${longDate(l.arrivalDate)}`,
+    `Departure Date: ${longDate(l.departureDate)}`,
+    l.nationality ? `Nationality: ${l.nationality}` : "",
+  ].filter(Boolean);
+  return `
+        <tr>
+          <td>
+            <div class="desc-main">${esc(buildDescription(l))}</div>
+            ${subLines.map((s) => `<div class="desc-sub">${esc(s)}</div>`).join("")}
+          </td>
+          <td class="num">${qty}</td>
+          <td class="num">${money(unitPrice)}</td>
+          <td class="num">Inc.</td>
+          <td class="num">${money(l.amount)}</td>
+        </tr>`;
+}
+
 /** Build the standalone invoice HTML document (self-contained, print-ready). */
 export function buildInvoiceHtml(d: InvoiceData): string {
   const cur = d.currency || "USD";
-  const qty = d.line.qty > 0 ? d.line.qty : 1;
-  const subtotal = d.sellingTotal;
-  const unitPrice = subtotal / qty;
+  const lines = d.lines.length ? d.lines : [];
+  const money = (n: number) => formatMoney(n, cur);
+
+  const subtotal = lines.reduce((s, l) => s + l.amount, 0);
+  const totalQty = lines.reduce((s, l) => s + (l.qty > 0 ? l.qty : 1), 0);
   const discountAmount = subtotal * (d.discountPercent || 0);
   const total = subtotal - discountAmount;
   const amountDue = total;
-  const money = (n: number) => formatMoney(n, cur);
-
-  const desc = buildDescription(d.line);
-  const subLines = [
-    `Arrival Date: ${longDate(d.line.arrivalDate)}`,
-    `Departure Date: ${longDate(d.line.departureDate)}`,
-    d.line.nationality ? `Nationality: ${d.line.nationality}` : "",
-  ].filter(Boolean);
 
   const guests = d.guestNames.filter(Boolean);
   const billToBlock = guests.length
@@ -100,13 +117,15 @@ export function buildInvoiceHtml(d: InvoiceData): string {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .page { max-width: 760px; margin: 0 auto; padding: 40px 36px; position: relative; min-height: 100vh; }
+  .page { max-width: 760px; margin: 0 auto; padding: 40px 36px; position: relative; min-height: 100vh; page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
   .head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
   .head h1 { font-size: 30px; font-weight: 800; letter-spacing: .5px; margin: 0; }
   .head img { height: 34px; width: auto; }
   .meta { display: grid; grid-template-columns: 130px 1fr; row-gap: 3px; margin-bottom: 26px; }
   .meta .k { color: #333; }
   .meta .v { font-weight: 600; }
+  .meta .invno { color: #8B0000; font-weight: 700; }
   .parties { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 34px; }
   .seller { line-height: 1.55; }
   .seller .name { font-weight: 600; }
@@ -121,7 +140,6 @@ export function buildInvoiceHtml(d: InvoiceData): string {
   }
   table.items thead th.num, table.items tbody td.num { text-align: right; }
   table.items tbody td { padding: 10px 8px; vertical-align: top; }
-  .desc-main { }
   .desc-sub { color: #333; margin-top: 2px; }
   .items-foot td { border-top: 1px solid #bbb; border-bottom: 1px solid #bbb; padding: 8px; }
   .summary { width: 300px; margin-left: auto; margin-top: 40px; }
@@ -144,7 +162,7 @@ export function buildInvoiceHtml(d: InvoiceData): string {
     </div>
 
     <div class="meta">
-      <div class="k">Invoice Number:</div><div class="v">${esc(d.invoiceNo)}</div>
+      <div class="k">Invoice Number:</div><div class="v invno">${esc(d.invoiceNo)}</div>
       <div class="k">Issue Date:</div><div class="v">${shortDate(d.issueDate)}</div>
       <div class="k">Due Date:</div><div class="v">${shortDate(d.dueDate)}</div>
     </div>
@@ -175,20 +193,11 @@ export function buildInvoiceHtml(d: InvoiceData): string {
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td>
-            <div class="desc-main">${esc(desc)}</div>
-            ${subLines.map((s) => `<div class="desc-sub">${esc(s)}</div>`).join("")}
-          </td>
-          <td class="num">${qty}</td>
-          <td class="num">${money(unitPrice)}</td>
-          <td class="num">Inc.</td>
-          <td class="num">${money(subtotal)}</td>
-        </tr>
+        ${lines.map((l) => renderLine(l, money)).join("")}
         <tr class="items-foot">
           <td></td>
-          <td class="num">${qty}</td>
-          <td class="num">${money(unitPrice)}</td>
+          <td class="num">${totalQty}</td>
+          <td class="num"></td>
           <td class="num">Inc.</td>
           <td class="num">${money(subtotal)}</td>
         </tr>
@@ -210,16 +219,28 @@ export function buildInvoiceHtml(d: InvoiceData): string {
 </html>`;
 }
 
-/** Open the invoice in a new window and trigger the browser print dialog (Save as PDF). */
-export function openInvoice(d: InvoiceData): void {
-  const html = buildInvoiceHtml(d);
-  const w = window.open("", "_blank");
-  if (!w) return; // popup blocked — caller should notify
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  // Give the browser a tick to lay out the logo image before printing.
-  const trigger = () => { try { w.focus(); w.print(); } catch { /* user closed window */ } };
-  if (w.document.readyState === "complete") setTimeout(trigger, 300);
-  else w.addEventListener("load", () => setTimeout(trigger, 300));
+/**
+ * Open one or more invoices and trigger the browser print dialog (Save as PDF).
+ * Each InvoiceData opens in its own window so the user can save separate PDFs.
+ * Returns the number of windows that were blocked (0 = all opened).
+ */
+export function openInvoices(invoices: InvoiceData[]): number {
+  let blocked = 0;
+  invoices.forEach((d) => {
+    const html = buildInvoiceHtml(d);
+    const w = window.open("", "_blank");
+    if (!w) { blocked++; return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    const trigger = () => { try { w.focus(); w.print(); } catch { /* window closed */ } };
+    if (w.document.readyState === "complete") setTimeout(trigger, 300);
+    else w.addEventListener("load", () => setTimeout(trigger, 300));
+  });
+  return blocked;
+}
+
+/** Convenience wrapper for a single invoice. */
+export function openInvoice(d: InvoiceData): boolean {
+  return openInvoices([d]) === 0;
 }
