@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Save, Trash2, Search, ArrowLeft, Mail, Plus, X, AlertTriangle, Sparkles, Calculator, Info, Download } from "lucide-react";
+import { Save, Trash2, Search, ArrowLeft, Mail, Plus, X, AlertTriangle, Sparkles, Calculator, Info, Download, FileText } from "lucide-react";
 import {
   nights as calcNights, plUsd, plEur, plEgp, ebdAmountUsd, ebdAmountEur, ebdAmountEgp,
   formatMoney,
@@ -28,6 +28,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/ui/states";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { BookingPaymentsSection } from "@/components/booking-payments";
+import { openInvoice } from "@/lib/invoice";
 
 type S = Record<string, string>;
 
@@ -412,6 +413,54 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
     setDateSuppResults([]);
     setStaySuppResults([]);
     setCalcOpen(true);
+  }
+
+  // ── Invoice (print → PDF) ────────────────────────────────────────────────────
+  function handleInvoice() {
+    // Currency + selling amount. GBP shares the USD selling field (see onCurrencyChange).
+    let curr = form.bookingCurrency;
+    if (!curr) {
+      curr = num(form.sellingEur) ? "EUR" : num(form.sellingEgp) ? "EGP" : "USD";
+    }
+    const selling = curr === "EUR" ? num(form.sellingEur)
+      : curr === "EGP" ? num(form.sellingEgp) : num(form.sellingUsd);
+
+    const roomTypeLabel = (roomTypes.data ?? []).find((o) => o.value === form.hotelRoomTypeId)?.label ?? "";
+    const roomCategoryLabel = (lookups.data?.roomCategories ?? []).find((o) => o.value === form.roomCategory)?.label ?? form.roomCategory;
+    const mealBasisLabel = (lookups.data?.mealBases ?? []).find((o) => o.value === form.mealBasis)?.label ?? form.mealBasis;
+    const market = (lookups.data?.markets ?? []).find((m) => m.id === form.marketId);
+    const nationality = market ? (market.name ?? market.code) : "";
+
+    const guests = guestList
+      .filter((g) => g.type === "HOTEL" && g.name.trim())
+      .map((g) => `${g.title ? g.title + " " : ""}${g.name.trim()}`);
+    const guestNames = guests.length
+      ? guests
+      : guestList.filter((g) => g.name.trim()).map((g) => `${g.title ? g.title + " " : ""}${g.name.trim()}`);
+
+    const invoiceNo = internalRef ? `SAL-${TODAY.slice(0, 4)}-${internalRef}` : `SAL-${TODAY.slice(0, 4)}-${(bookingId ?? "").slice(-6)}`;
+
+    openInvoice({
+      invoiceNo,
+      currency: curr,
+      issueDate: TODAY,
+      dueDate: form.paymentOptionDate || TODAY,
+      billToName: guestNames[0] ?? "",
+      guestNames,
+      line: {
+        hotelName: hotelLabel,
+        roomTypeLabel,
+        roomCategoryLabel,
+        mealBasisLabel,
+        nationality,
+        arrivalDate: form.arrivalDate,
+        departureDate: form.departureDate,
+        nights: derived.nights,
+        qty: Math.max(1, num(form.numRooms)),
+      },
+      sellingTotal: selling,
+      discountPercent: ebdFraction,
+    });
   }
 
   // Partition the stay across up to two rate periods. Returns whole nights for each.
@@ -1156,11 +1205,18 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Financials &amp; Payment</CardTitle>
-              {!isViewer && (
-                <Button type="button" variant="outline" size="sm" onClick={openCalc}>
-                  <Calculator className="size-4" /> Cost Calculation
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {bookingId && (
+                  <Button type="button" variant="outline" size="sm" onClick={handleInvoice}>
+                    <FileText className="size-4" /> Invoice
+                  </Button>
+                )}
+                {!isViewer && (
+                  <Button type="button" variant="outline" size="sm" onClick={openCalc}>
+                    <Calculator className="size-4" /> Cost Calculation
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
