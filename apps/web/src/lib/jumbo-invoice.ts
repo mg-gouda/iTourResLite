@@ -22,6 +22,19 @@ export interface JumboInvoice {
   currency: string;       // USD / EUR / EGP / GBP
   amount: number;         // selling total, booking currency
   issuedBy: string;       // name of the user generating the invoice
+  issueDate: string;      // ISO yyyy-mm-dd — the day the invoice is generated
+}
+
+/**
+ * Today in the browser's own timezone. Deliberately not
+ * `toISOString().slice(0, 10)` (used elsewhere for form defaults): that yields
+ * the UTC day, which would date an invoice generated late at night in Egypt to
+ * the previous day.
+ */
+export function todayIso(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 // The bill-to party is fixed: these invoices exist only for this operator.
@@ -216,7 +229,7 @@ function drawInvoice(doc: Doc, d: JumboInvoice) {
   doc.setFont("helvetica", "bold");
   doc.text("Issue date:", issuedX, issuedY);
   underline(doc, issuedX, issuedY, doc.getTextWidth("Issue date:"));
-  const issueDate = slashDate(d.checkIn);
+  const issueDate = slashDate(d.issueDate);
   doc.text(issueDate, issuedX + 22, issuedY);
   underline(doc, issuedX + 22, issuedY, doc.getTextWidth(issueDate));
 }

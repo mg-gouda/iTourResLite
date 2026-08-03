@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
-import { buildJumboInvoicesZip, type JumboInvoice } from "@/lib/jumbo-invoice";
+import { buildJumboInvoicesZip, todayIso, type JumboInvoice } from "@/lib/jumbo-invoice";
 
 const iso = (v: string | Date | null | undefined) => (v ? String(v).slice(0, 10) : "");
 
@@ -134,6 +134,7 @@ export default function JumboInvoicesPage() {
       currency,
       amount,
       issuedBy: user?.name ?? "",
+      issueDate: todayIso(),
     };
   };
 
