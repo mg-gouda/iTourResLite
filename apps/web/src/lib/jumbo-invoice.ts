@@ -241,9 +241,9 @@ export async function buildJumboInvoicePdf(d: JumboInvoice): Promise<Uint8Array>
   return new Uint8Array(doc.output("arraybuffer"));
 }
 
-/** File name for a single invoice: "{OperatorRef} INV {InvoiceNumber}.pdf". */
+/** File name for a single invoice: "{InvoiceNumber} INV {OperatorRef}.pdf". */
 export function jumboInvoiceFileName(d: JumboInvoice): string {
-  return `${safeFileName(`${d.agencyRef} INV ${d.invoiceNo}`)}.pdf`;
+  return `${safeFileName(`${d.invoiceNo} INV ${d.agencyRef}`)}.pdf`;
 }
 
 /**
