@@ -1,17 +1,18 @@
 "use client";
 
-// Renderer for the "Fulvago Travel Accommodation invoice" form issued to
-// Jumboline — the layout of the manually-produced Docs/*.pdf reference. One
-// invoice per booking, all of them in a single print document (one page each)
-// so the whole batch saves as one PDF.
+// "Fulvago Travel Accommodation invoice" — the form issued to Jumboline, drawn
+// as a real (vector) PDF with jsPDF so each booking downloads as its own file.
+// Layout mirrors the manually-produced reference in Docs/.
+// jsPDF is imported dynamically so it stays out of the initial bundle.
 
 import { FULVAGO_LOGO_DATA_URI } from "./invoice-logo";
+import { safeFileName, zipSync, type ZipEntry } from "./zip";
 
 export interface JumboInvoice {
   invoiceNo: string;      // {yyyy}0000
   agencyRef: string;      // operator booking reference
-  clientName: string;     // lead guest, e.g. "Mr CHRISTOPHE PERUFFO"
-  requestDate: string;    // ISO yyyy-mm-dd — booking date
+  clientName: string;     // lead guest as recorded, e.g. "Mr CHRISTOPHE PERUFFO"
+  requestDate: string;    // ISO yyyy-mm-dd — booking date entered on the system
   checkIn: string;        // ISO yyyy-mm-dd
   checkOut: string;       // ISO yyyy-mm-dd
   nights: number;
@@ -20,11 +21,26 @@ export interface JumboInvoice {
   pax: number;
   currency: string;       // USD / EUR / EGP / GBP
   amount: number;         // selling total, booking currency
+  issuedBy: string;       // name of the user generating the invoice
 }
 
-const esc = (s: string) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+// The bill-to party is fixed: these invoices exist only for this operator.
+const BILL_TO = [
+  "Invoice to:  (07009) Palma de Mallorca - Spain.",
+  "JUMBOLINE ACCOMMODATIONS & SERVICES S.L.U.,",
+  "VAT 856619968",
+  "Address Gran Via Asima, 4 , Poligono Son Castello,",
+  "(07009) Palma de Mallorca - Spain.",
+];
+
+const SELLER = [
+  "Fulvago Travel",
+  "VAT 200-265-075",
+  "Address office no. 1303,",
+  "El-Kawther, infront of Hurghada airport,",
+  "Hurghada, Red Sea,",
+  "Egypt",
+];
 
 // m/d/yyyy with no leading zeros — matches the reference form ("7/8/2026").
 function slashDate(iso: string): string {
@@ -37,157 +53,215 @@ function amount2(n: number): string {
   return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${dec}`;
 }
 
-function renderPage(d: JumboInvoice): string {
-  return `
-  <div class="page">
-    <img class="logo" src="${FULVAGO_LOGO_DATA_URI}" alt="Fulvago Travel" />
+const PAGE_W = 210;   // A4 portrait, mm
+const MARGIN = 10;
+const TABLE_W = PAGE_W - MARGIN * 2;
 
-    <div class="seller">
-      <div>Fulvago Travel</div>
-      <div>VAT 200-265-075</div>
-      <div>Address office no. 1303,</div>
-      <div>El-Kawther, infront of Hurghada airport,</div>
-      <div>Hurghada, Red Sea,</div>
-      <div>Egypt</div>
-    </div>
+// Column widths (mm) — must sum to TABLE_W. `maxLines` is 1 for values that
+// must never wrap (dates, counts); those shrink to fit instead.
+const COLS: { header: string[]; width: number; maxLines: number }[] = [
+  { header: ["Agency reference"],  width: 23, maxLines: 2 },
+  { header: ["Client Name"],       width: 29, maxLines: 2 },
+  { header: ["Request", "date"],   width: 18, maxLines: 1 },
+  { header: ["Check in"],          width: 18, maxLines: 1 },
+  { header: ["Check out"],         width: 18, maxLines: 1 },
+  { header: ["Nights"],            width: 9,  maxLines: 1 },
+  { header: ["Room", "Occupancy"], width: 20, maxLines: 2 },
+  { header: ["Room Type"],         width: 21, maxLines: 2 },
+  { header: ["Pax"],               width: 8,  maxLines: 1 },
+  { header: ["Amount"],            width: 26, maxLines: 1 },
+];
 
-    <div class="billto">
-      <div>Invoice to:&nbsp; (07009) Palma de Mallorca - Spain.</div>
-      <div>JUMBOLINE ACCOMMODATIONS &amp; SERVICES S.L.U.,</div>
-      <div>VAT 856619968</div>
-      <div>Address Gran Via Asima, 4 , Poligono Son Castello,</div>
-      <div>(07009) Palma de Mallorca - Spain.</div>
-    </div>
+type Doc = import("jspdf").jsPDF;
 
-    <table class="refbox">
-      <tr><th>Invoice Number</th><td>${esc(d.invoiceNo)}</td></tr>
-      <tr><th>Arrival date</th><td>${slashDate(d.checkIn)}</td></tr>
-    </table>
-
-    <div class="doctitle">Fulvago Travel Accommodation invoice</div>
-
-    <table class="items">
-      <thead>
-        <tr>
-          <th class="w-ref">Agency reference</th>
-          <th class="w-client">Client Name</th>
-          <th>Request date</th>
-          <th>Check in</th>
-          <th>Check out</th>
-          <th class="w-nights">Nights</th>
-          <th>Room Occupancy</th>
-          <th>Room Type</th>
-          <th class="w-pax">Pax</th>
-          <th class="w-amount" colspan="2">Amount</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="strong">${esc(d.agencyRef)}</td>
-          <td class="strong">${esc(d.clientName)}</td>
-          <td class="strong">${slashDate(d.requestDate)}</td>
-          <td class="strong">${slashDate(d.checkIn)}</td>
-          <td class="strong">${slashDate(d.checkOut)}</td>
-          <td class="strong">${d.nights}</td>
-          <td class="strong">${esc(d.roomOccupancy)}</td>
-          <td class="strong">${esc(d.roomType)}</td>
-          <td class="strong">${d.pax}</td>
-          <td class="cur">${esc(d.currency)}</td>
-          <td class="amt">${amount2(d.amount)}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <table class="totalbox">
-      <tr>
-        <td class="lbl">Total:</td>
-        <td class="cur">${esc(d.currency)}</td>
-        <td class="amt">${amount2(d.amount)}</td>
-      </tr>
-    </table>
-
-    <div class="issued">
-      <div><span class="u">Issued by:</span></div>
-      <div><span class="u">Issue date:</span> <span class="issue-date">${slashDate(d.checkIn)}</span></div>
-    </div>
-  </div>`;
+/**
+ * Centre `text` in a cell, shrinking the font until it fits within `maxLines`.
+ * A value with no break opportunity (a date) can still overflow the cell width
+ * after splitting, so the width of the widest line is checked too — otherwise
+ * "7/22/2026" spills into the neighbouring column.
+ */
+function fitCentered(doc: Doc, text: string, x: number, w: number, yMid: number, size: number, maxLines = 2) {
+  const avail = w - 3;
+  let fontSize = size;
+  let lines: string[] = [];
+  for (;;) {
+    doc.setFontSize(fontSize);
+    // splitTextToSize hard-breaks a word that is wider than the cell, which
+    // would chop a surname (or a date) mid-token — shrink until the longest
+    // word fits on its own, then split on real word boundaries.
+    const longestWord = text.split(/\s+/).reduce((m, word) => Math.max(m, doc.getTextWidth(word)), 0);
+    lines = doc.splitTextToSize(text, avail);
+    if ((lines.length <= maxLines && longestWord <= avail) || fontSize <= 5.5) break;
+    fontSize -= 0.25;
+  }
+  lines = lines.slice(0, maxLines);
+  const lh = fontSize * 0.42;
+  const top = yMid - ((lines.length - 1) * lh) / 2;
+  lines.forEach((ln, i) => doc.text(ln, x + w / 2, top + i * lh, { align: "center", baseline: "middle" }));
+  doc.setFontSize(size);
 }
 
-/** Build one print-ready document holding every invoice, one per page. */
-export function buildJumboInvoicesHtml(invoices: JumboInvoice[]): string {
-  const title = invoices.length === 1
-    ? `${invoices[0].invoiceNo} INV ${invoices[0].agencyRef}`
-    : `Jumbo Invoices (${invoices.length})`;
+/** Underline the text just drawn at (x, y) with the given width. */
+function underline(doc: Doc, x: number, y: number, w: number) {
+  doc.setLineWidth(0.25);
+  doc.line(x, y + 1.1, x + w, y + 1.1);
+}
 
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<title>${esc(title)}</title>
-<style>
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: Calibri, Arial, Helvetica, sans-serif;
-    color: #000;
-    font-size: 11px;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+function drawInvoice(doc: Doc, d: JumboInvoice) {
+  doc.setDrawColor(0);
+  doc.setTextColor(0);
+
+  // Logo — the reference JPEG is 350×64.
+  const logoW = 92;
+  doc.addImage(FULVAGO_LOGO_DATA_URI, "JPEG", 18, 14, logoW, logoW * (64 / 350));
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  SELLER.forEach((line, i) => doc.text(line, 14, 41 + i * 4.6));
+  BILL_TO.forEach((line, i) => doc.text(line, 104, 71 + i * 4.6));
+
+  // Invoice Number / Arrival date box.
+  const boxX = 14, boxY = 99, labelW = 34, valueW = 40, rowH = 6;
+  doc.setLineWidth(0.3);
+  [
+    ["Invoice Number", d.invoiceNo],
+    ["Arrival date", slashDate(d.checkIn)],
+  ].forEach(([label, value], i) => {
+    const y = boxY + i * rowH;
+    doc.rect(boxX, y, labelW, rowH);
+    doc.rect(boxX + labelW, y, valueW, rowH);
+    doc.setFont("helvetica", "bold");
+    doc.text(label, boxX + 2, y + rowH / 2, { baseline: "middle" });
+    doc.text(value, boxX + labelW + valueW / 2, y + rowH / 2, { align: "center", baseline: "middle" });
+  });
+
+  // Centred, underlined document title.
+  const title = "Fulvago Travel Accommodation invoice";
+  const titleY = boxY + rowH * 2 + 10;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.5);
+  doc.text(title, PAGE_W / 2, titleY, { align: "center" });
+  underline(doc, PAGE_W / 2 - doc.getTextWidth(title) / 2, titleY, doc.getTextWidth(title));
+
+  // ── Items table ───────────────────────────────────────────────────────────
+  const headY = titleY + 5;
+  const headH = 9;
+  const bodyH = 16;
+
+  doc.setFontSize(6.2);
+  let x = MARGIN;
+  COLS.forEach((col) => {
+    doc.rect(x, headY, col.width, headH);
+    const lh = 2.6;
+    const top = headY + headH / 2 - ((col.header.length - 1) * lh) / 2;
+    col.header.forEach((ln, i) =>
+      doc.text(ln, x + col.width / 2, top + i * lh, { align: "center", baseline: "middle" }));
+    x += col.width;
+  });
+
+  const cells = [
+    d.agencyRef,
+    d.clientName,
+    slashDate(d.requestDate),
+    slashDate(d.checkIn),
+    slashDate(d.checkOut),
+    String(d.nights),
+    d.roomOccupancy,
+    d.roomType,
+    String(d.pax),
+  ];
+
+  const bodyY = headY + headH;
+  const midY = bodyY + bodyH / 2;
+  doc.setFont("helvetica", "bold");
+  x = MARGIN;
+  cells.forEach((text, i) => {
+    doc.rect(x, bodyY, COLS[i].width, bodyH);
+    fitCentered(doc, text, x, COLS[i].width, midY, 9, COLS[i].maxLines);
+    x += COLS[i].width;
+  });
+
+  // Amount cell: currency on the left, figure right-aligned (as in the form).
+  // The figure's budget excludes the currency so a large amount cannot run into it.
+  const amtW = COLS[COLS.length - 1].width;
+  doc.rect(x, bodyY, amtW, bodyH);
+  doc.setFontSize(9);
+  doc.text(d.currency, x + 2.5, midY, { baseline: "middle" });
+  const curTextW = doc.getTextWidth(d.currency);
+  fitRight(doc, amount2(d.amount), x + amtW - 2.5, midY, 9, amtW - curTextW - 6);
+
+  // ── Total box, right-aligned under the table ──────────────────────────────
+  const totalY = bodyY + bodyH + 5;
+  const curW = 14, valW = 26, totalH = 6;
+  const totalX = MARGIN + TABLE_W - curW - valW;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("Total:", totalX - 3, totalY + totalH / 2, { align: "right", baseline: "middle" });
+  doc.rect(totalX, totalY, curW, totalH);
+  doc.rect(totalX + curW, totalY, valW, totalH);
+  doc.text(d.currency, totalX + curW / 2, totalY + totalH / 2, { align: "center", baseline: "middle" });
+  fitRight(doc, amount2(d.amount), totalX + curW + valW - 2.5, totalY + totalH / 2, 9, valW - 5);
+
+  // ── Issued by / Issue date ────────────────────────────────────────────────
+  const issuedX = MARGIN + TABLE_W - 60;
+  let issuedY = totalY + totalH + 8;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("Issued by:", issuedX, issuedY);
+  underline(doc, issuedX, issuedY, doc.getTextWidth("Issued by:"));
+  doc.setFont("helvetica", "normal");
+  doc.text(d.issuedBy || "—", issuedX + 22, issuedY);
+
+  issuedY += 7;
+  doc.setFont("helvetica", "bold");
+  doc.text("Issue date:", issuedX, issuedY);
+  underline(doc, issuedX, issuedY, doc.getTextWidth("Issue date:"));
+  const issueDate = slashDate(d.checkIn);
+  doc.text(issueDate, issuedX + 22, issuedY);
+  underline(doc, issuedX + 22, issuedY, doc.getTextWidth(issueDate));
+}
+
+/** Right-align text at `xRight`, shrinking to fit `maxW`. */
+function fitRight(doc: Doc, text: string, xRight: number, yMid: number, size: number, maxW: number) {
+  let fontSize = size;
+  doc.setFontSize(fontSize);
+  while (doc.getTextWidth(text) > maxW && fontSize > 5.5) {
+    fontSize -= 0.5;
+    doc.setFontSize(fontSize);
   }
-  .page { width: 210mm; padding: 12mm 10mm; page-break-after: always; position: relative; }
-  .page:last-child { page-break-after: auto; }
-  .logo { height: 62px; width: auto; display: block; margin: 4mm 0 6mm 8mm; }
-  .seller { line-height: 1.5; margin-left: 4mm; }
-  .billto { line-height: 1.5; margin: 5mm 0 0 95mm; }
-  table.refbox { border-collapse: collapse; margin: 6mm 0 0 4mm; }
-  table.refbox th, table.refbox td { border: 1px solid #000; padding: 2px 6px; font-size: 11px; }
-  table.refbox th { text-align: left; font-weight: 700; width: 34mm; }
-  table.refbox td { text-align: center; font-weight: 700; width: 40mm; }
-  .doctitle { text-align: center; font-weight: 700; text-decoration: underline; margin: 7mm 0 3mm; }
-  table.items { border-collapse: collapse; width: 100%; }
-  table.items th, table.items td { border: 1px solid #000; padding: 4px 5px; text-align: center; vertical-align: middle; }
-  table.items thead th { font-size: 8px; font-weight: 700; }
-  table.items tbody td { height: 16mm; font-size: 11px; }
-  table.items tbody td.strong { font-weight: 700; }
-  table.items td.cur, table.items td.amt { font-weight: 700; }
-  table.items td.cur { border-right: none; text-align: center; }
-  table.items td.amt { border-left: none; text-align: right; padding-right: 8px; }
-  table.items th.w-ref { width: 13%; }
-  table.items th.w-client { width: 18%; }
-  table.items th.w-nights { width: 5%; }
-  table.items th.w-pax { width: 5%; }
-  table.items th.w-amount { width: 13%; }
-  table.totalbox { border-collapse: collapse; margin: 4mm 0 0 auto; }
-  table.totalbox td { border: 1px solid #000; padding: 2px 6px; font-weight: 700; }
-  table.totalbox td.lbl { border: none; text-align: right; width: 26mm; }
-  table.totalbox td.cur { text-align: center; width: 14mm; }
-  table.totalbox td.amt { text-align: right; width: 26mm; }
-  .issued { margin: 5mm 0 0 auto; width: 60mm; line-height: 1.9; font-weight: 700; }
-  .issued .u { text-decoration: underline; }
-  .issued .issue-date { text-decoration: underline; margin-left: 8mm; }
-  @page { size: A4; margin: 8mm; }
-  @media print { .page { width: auto; padding: 0; } }
-</style>
-</head>
-<body>
-${invoices.map(renderPage).join("\n")}
-</body>
-</html>`;
+  doc.text(text, xRight, yMid, { align: "right", baseline: "middle" });
+  doc.setFontSize(size);
+}
+
+/** Render one invoice as a standalone PDF. */
+export async function buildJumboInvoicePdf(d: JumboInvoice): Promise<Uint8Array> {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  drawInvoice(doc, d);
+  return new Uint8Array(doc.output("arraybuffer"));
+}
+
+/** File name for a single invoice: "{OperatorRef} INV {InvoiceNumber}.pdf". */
+export function jumboInvoiceFileName(d: JumboInvoice): string {
+  return `${safeFileName(`${d.agencyRef} INV ${d.invoiceNo}`)}.pdf`;
 }
 
 /**
- * Open the whole batch in one window and trigger the print dialog (Save as PDF).
- * Returns true when the window opened, false when the popup was blocked.
+ * Render every selected invoice as its own PDF and return them zipped.
+ * Names inside the archive follow `jumboInvoiceFileName`; a duplicate name
+ * (same booking listed twice) gets a numeric suffix so nothing is overwritten.
  */
-export function openJumboInvoices(invoices: JumboInvoice[]): boolean {
-  if (!invoices.length) return true;
-  const w = window.open("", "_blank");
-  if (!w) return false;
-  w.document.open();
-  w.document.write(buildJumboInvoicesHtml(invoices));
-  w.document.close();
-  const trigger = () => { try { w.focus(); w.print(); } catch { /* window closed */ } };
-  if (w.document.readyState === "complete") setTimeout(trigger, 400);
-  else w.addEventListener("load", () => setTimeout(trigger, 400));
-  return true;
+export async function buildJumboInvoicesZip(invoices: JumboInvoice[]): Promise<Blob> {
+  const used = new Map<string, number>();
+  const entries: ZipEntry[] = [];
+  for (const inv of invoices) {
+    const base = jumboInvoiceFileName(inv);
+    const seen = used.get(base) ?? 0;
+    used.set(base, seen + 1);
+    entries.push({
+      name: seen ? base.replace(/\.pdf$/, ` (${seen + 1}).pdf`) : base,
+      data: await buildJumboInvoicePdf(inv),
+    });
+  }
+  return zipSync(entries);
 }

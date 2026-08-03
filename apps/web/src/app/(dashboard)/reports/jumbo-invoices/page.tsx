@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText } from "lucide-react";
-import { fmtDate, nights as calcNights } from "@itour/shared";
+import { fmtDate, nights as calcNights, canIssueInvoices, type Role } from "@itour/shared";
 import { get, post, qs } from "@/lib/api";
 import { useLookups } from "@/lib/lookups";
+import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/toast-provider";
 import { ReportTotalCount } from "@/components/report-total-count";
 import { ClearFiltersButton } from "@/components/clear-filters-button";
@@ -17,12 +18,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
-import { openJumboInvoices, type JumboInvoice } from "@/lib/jumbo-invoice";
+import { buildJumboInvoicesZip, type JumboInvoice } from "@/lib/jumbo-invoice";
 
 const iso = (v: string | Date | null | undefined) => (v ? String(v).slice(0, 10) : "");
 
-// Lead client for the invoice: first HOTEL guest (falling back to any listed
-// guest, then the legacy free-text field), printed as "Mr FAMILY NAME".
+// Lead client for the invoice, printed exactly as recorded on the booking —
+// the title comes from the guest row, never from a guess. Falls back to the
+// legacy free-text name (which carries no title) when no guest rows exist.
 function clientName(b: any): string {
   const list: any[] = b.guestNameList ?? [];
   const hotel = list.filter((g) => g.type === "HOTEL" && g.name?.trim());
@@ -63,14 +65,26 @@ function money(b: any): { currency: string; amount: number } {
 
 const paxOf = (b: any) => (Number(b.adults) || 0) + (Number(b.children) || 0) + (Number(b.infants) || 0);
 
+function downloadBlob(blob: Blob, filename: string) {
+  const a = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(blob),
+    download: filename,
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 export default function JumboInvoicesPage() {
   const lookups = useLookups();
+  const { user } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
 
+  const canIssue = canIssueInvoices((user?.role ?? "VIEWER") as Role);
   const filters = { from, to };
   const hasFilters = !!(from || to);
 
@@ -80,9 +94,29 @@ export default function JumboInvoicesPage() {
     enabled: hasFilters,
   });
 
-  const rows = query.data ?? [];
+  const rows = useMemo(() => query.data ?? [], [query.data]);
+  // Only rows currently listed can be generated — a filter change drops the rest.
+  const selectedIds = useMemo(
+    () => rows.filter((b) => selected.has(b.id)).map((b) => b.id),
+    [rows, selected],
+  );
+  const allSelected = rows.length > 0 && selectedIds.length === rows.length;
+
   const catLabel = (code: string) =>
     (lookups.data?.roomCategories ?? []).find((o: any) => o.value === code)?.label ?? code ?? "—";
+
+  function toggleRow(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(rows.map((b) => b.id)));
+  }
 
   const toInvoice = (b: any): JumboInvoice => {
     const { currency, amount } = money(b);
@@ -99,19 +133,25 @@ export default function JumboInvoicesPage() {
       pax: paxOf(b),
       currency,
       amount,
+      issuedBy: user?.name ?? "",
     };
   };
 
-  // Issue (or re-use) the invoice numbers server-side, then print the whole
-  // batch as one document — one invoice page per booking.
+  // Issue (or re-use) the numbers for the ticked bookings, then build one PDF
+  // per booking and download them together as a zip.
   async function generate() {
-    if (!rows.length || generating) return;
+    if (!selectedIds.length || generating) return;
     setGenerating(true);
     try {
-      const issued = await post<any[]>("/reports/jumbo-invoices/issue", filters);
-      const opened = openJumboInvoices(issued.map(toInvoice));
-      if (opened) toast.success(`Generated ${issued.length} invoice${issued.length === 1 ? "" : "s"}.`);
-      else toast.error("Print window was blocked — please allow pop-ups for this site.");
+      const issued = await post<any[]>("/reports/jumbo-invoices/issue", { bookingIds: selectedIds });
+      if (!issued.length) {
+        toast.error("None of the selected bookings could be invoiced.");
+        return;
+      }
+      const zip = await buildJumboInvoicesZip(issued.map(toInvoice));
+      const stamp = from && to ? `${from}_${to}` : new Date().toISOString().slice(0, 10);
+      downloadBlob(zip, `jumbo-invoices-${stamp}.zip`);
+      toast.success(`Generated ${issued.length} invoice${issued.length === 1 ? "" : "s"}.`);
       qc.invalidateQueries({ queryKey: ["report-jumbo-invoices"] });
     } catch (err: any) {
       toast.error(err?.message ?? "Could not generate the invoices.");
@@ -120,14 +160,21 @@ export default function JumboInvoicesPage() {
     }
   }
 
+  const generateLabel = generating
+    ? "Generating…"
+    : selectedIds.length
+      ? `Generate (${selectedIds.length})`
+      : "Generate";
+
   return (
     <div>
       <PageHeader
         title="Jumbo Invoices"
-        description="Confirmed Jumbo bookings arriving in the selected range, as one PDF with a separate invoice page per booking."
+        description="Confirmed Jumbo bookings arriving in the selected range. Tick the bookings to invoice — each one downloads as its own PDF inside a zip."
         actions={
-          <Button size="sm" onClick={generate} disabled={!rows.length || generating}>
-            <FileText className="size-4" /> {generating ? "Generating…" : "Generate"}
+          <Button size="sm" onClick={generate} disabled={!selectedIds.length || generating || !canIssue}
+            title={canIssue ? undefined : "Only Accountant, Manager or Admin may issue invoices"}>
+            <FileText className="size-4" /> {generateLabel}
           </Button>
         }
       />
@@ -138,18 +185,26 @@ export default function JumboInvoicesPage() {
           <Field label="Operator"><Input value="Jumbo" readOnly disabled /></Field>
           <Field label="Hotel Booking Status"><Input value="Confirmed" readOnly disabled /></Field>
           <div className="flex items-end">
-            <ClearFiltersButton onClear={() => { setFrom(""); setTo(""); }} disabled={!hasFilters} />
+            <ClearFiltersButton
+              onClear={() => { setFrom(""); setTo(""); setSelected(new Set()); }}
+              disabled={!hasFilters}
+            />
           </div>
         </CardContent>
       </Card>
 
       {rows.length > 0 && <ReportTotalCount count={rows.length} />}
+      {!canIssue && rows.length > 0 && (
+        <p className="mb-3 text-sm text-muted-foreground">
+          Issuing invoices is limited to Accountant, Manager and Admin users.
+        </p>
+      )}
 
       <Card>
         <CardContent className="p-0">
           {!hasFilters ? (
-            <EmptyState title="Set an arrival date range" description="Choose the arrival dates to invoice, then press Generate." />
-          ) : query.isLoading ? <TableSkeleton rows={8} cols={10} />
+            <EmptyState title="Set an arrival date range" description="Choose the arrival dates, tick the bookings to invoice, then press Generate." />
+          ) : query.isLoading ? <TableSkeleton rows={8} cols={11} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !rows.length ? <EmptyState title="No confirmed Jumbo bookings" description="No Confirmed bookings for Jumbo arrive in this range." />
           : (
@@ -157,6 +212,10 @@ export default function JumboInvoicesPage() {
               <Table>
                 <THead>
                   <TR>
+                    <TH className="w-8">
+                      <input type="checkbox" className="accent-primary size-4 align-middle"
+                        checked={allSelected} onChange={toggleAll} aria-label="Select all bookings" />
+                    </TH>
                     <TH>Invoice No.</TH><TH>Agency Reference</TH><TH>Client Name</TH>
                     <TH>Request Date</TH><TH>Check In</TH><TH>Check Out</TH>
                     <TH className="text-right">Nights</TH><TH>Room Occupancy</TH><TH>Room Type</TH>
@@ -167,7 +226,12 @@ export default function JumboInvoicesPage() {
                   {rows.map((b) => {
                     const inv = toInvoice(b);
                     return (
-                      <TR key={b.id}>
+                      <TR key={b.id} className={selected.has(b.id) ? "bg-secondary/40" : undefined}>
+                        <TD>
+                          <input type="checkbox" className="accent-primary size-4 align-middle"
+                            checked={selected.has(b.id)} onChange={() => toggleRow(b.id)}
+                            aria-label={`Select booking ${inv.agencyRef}`} />
+                        </TD>
                         <TD className="font-medium tabular-nums">
                           {inv.invoiceNo || <span className="text-muted-foreground">not issued</span>}
                         </TD>

@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Post, Query } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, Post, Query } from "@nestjs/common";
 import { z } from "zod";
-import { zBookingStatus, computePaidTotals, round2, nights } from "@itour/shared";
+import { zBookingStatus, computePaidTotals, round2, nights, canIssueInvoices, type SessionUser } from "@itour/shared";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
+import { CurrentUser } from "../../common/current-user.decorator";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const dateRange = z.object({
@@ -36,6 +37,12 @@ const jumboRange = z.object({
   to:   z.coerce.date().optional(),
 });
 type JumboRange = z.infer<typeof jumboRange>;
+
+/** Issue request — the rows the user ticked in the report. */
+const jumboIssue = z.object({
+  bookingIds: z.array(z.string().min(1)).min(1, "Select at least one booking"),
+});
+type JumboIssue = z.infer<typeof jumboIssue>;
 
 /** The operator these invoices are issued to (JUMBOLINE ACCOMMODATIONS & SERVICES S.L.U.). */
 const JUMBO_OPERATOR_CODE = "JMB";
@@ -170,12 +177,15 @@ export class ReportsController {
    * range, shaped for the "Fulvago Travel Accommodation invoice" form (one
    * invoice page per booking). Read-only: `jumboInvoiceNo` is null until issued.
    */
-  private jumboRows(q: JumboRange) {
+  private jumboRows(q: JumboRange, ids?: string[]) {
     const where: any = {
       deletedAt: null,
       hotelStatus: JUMBO_STATUS,
       tourOperator: { code: JUMBO_OPERATOR_CODE },
     };
+    // The operator/status conditions above still apply to an explicit selection,
+    // so a client cannot invoice a booking the report would never have listed.
+    if (ids) where.id = { in: ids };
     if (q.from || q.to) {
       where.arrivalDate = {};
       if (q.from) where.arrivalDate.gte = q.from;
@@ -205,16 +215,25 @@ export class ReportsController {
   }
 
   /**
-   * Issue the invoice numbers for a range and return the same rows with
-   * `jumboInvoiceNo` filled in. A booking keeps the number it was first given,
-   * so re-generating a range reprints identical invoices; only bookings without
+   * Issue the invoice numbers for the selected bookings and return those rows
+   * with `jumboInvoiceNo` filled in. A booking keeps the number it was first
+   * given, so re-generating reprints identical invoices; only bookings without
    * a number consume from the counter. The counter is per arrival year
    * ({yyyy}0000, restarting at 0001 each year) and is advanced inside the same
    * transaction that stamps the bookings.
+   *
+   * Restricted to Accountant/Manager/Admin — issuing burns sequence numbers and
+   * permanently stamps the booking.
    */
   @Post("jumbo-invoices/issue")
-  async issueJumboInvoices(@Body(new ZodValidationPipe(jumboRange)) q: JumboRange) {
-    const rows = await this.jumboRows(q);
+  async issueJumboInvoices(
+    @Body(new ZodValidationPipe(jumboIssue)) body: JumboIssue,
+    @CurrentUser() user: SessionUser,
+  ) {
+    if (!canIssueInvoices(user.role as any)) {
+      throw new ForbiddenException("Only Accountant, Manager or Admin may issue invoices");
+    }
+    const rows = await this.jumboRows({}, body.bookingIds);
     const pending = rows.filter((r) => !r.jumboInvoiceNo);
     if (!pending.length) return rows;
 

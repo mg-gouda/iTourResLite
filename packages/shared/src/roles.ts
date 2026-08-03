@@ -42,3 +42,14 @@ export function canDeleteBooking(role: Role): boolean {
 export function canEditPayment(role: Role): boolean {
   return role === "ADMIN" || role === "MANAGER" || role === "ACCOUNTANT";
 }
+
+/**
+ * Who may issue invoice numbers (Jumbo Invoices report): Accountant & Manager,
+ * with Admin as superuser. Issuing consumes the {yyyy}0000 sequence and stamps
+ * the booking permanently, so Agents and Viewers are excluded. This is an
+ * explicit set, not a rank threshold — ACCOUNTANT ranks below AGENT, so
+ * `@Roles("ACCOUNTANT")` would wrongly let Agents through.
+ */
+export function canIssueInvoices(role: Role): boolean {
+  return role === "ADMIN" || role === "MANAGER" || role === "ACCOUNTANT";
+}
