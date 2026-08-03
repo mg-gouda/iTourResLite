@@ -234,6 +234,11 @@ model Booking {
   rateHistoryJson  String?   // JSON array of RateChangeEntry; appended when cost decreases
   spoDocumentPath  String?
   spoDocumentName  String?
+  // Jumbo Invoices report: the {yyyy}0000 number issued to this booking. Assigned
+  // once (on first generation) from the per-year counter in SystemConfig
+  // (key "jumboInvoiceSeq:<year>") so re-generating a range reprints the same
+  // numbers instead of consuming new ones.
+  jumboInvoiceNo   String?   @unique
   createdById      String?
   createdBy        User?         @relation("CreatedBy", fields: [createdById], references: [id])
   deletedAt        DateTime?

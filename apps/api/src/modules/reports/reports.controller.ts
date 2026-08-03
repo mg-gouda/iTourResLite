@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { z } from "zod";
 import { zBookingStatus, computePaidTotals, round2, nights } from "@itour/shared";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
@@ -29,6 +29,24 @@ function operatorFilter(v: string | string[]): string | { in: string[] } | undef
   if (ids.length === 0) return undefined;
   return ids.length === 1 ? ids[0] : { in: ids };
 }
+
+/** Jumbo Invoices — arrival-date range only; operator + status are fixed. */
+const jumboRange = z.object({
+  from: z.coerce.date().optional(),
+  to:   z.coerce.date().optional(),
+});
+type JumboRange = z.infer<typeof jumboRange>;
+
+/** The operator these invoices are issued to (JUMBOLINE ACCOMMODATIONS & SERVICES S.L.U.). */
+const JUMBO_OPERATOR_CODE = "JMB";
+/** Only Confirmed bookings are invoiced. */
+const JUMBO_STATUS = "Confirmed";
+/**
+ * First number of the sequence for a given year; every other year starts at 1.
+ * 2026 continues the manually-issued run, which reached 0145.
+ */
+const JUMBO_SEQ_SEED: Record<number, number> = { 2026: 146 };
+const jumboSeqKey = (year: number) => `jumboInvoiceSeq:${year}`;
 
 
 @Controller("reports")
@@ -145,6 +163,90 @@ export class ReportsController {
         tourOperator: { select: { id: true, code: true, name: true } },
       },
     });
+  }
+
+  /**
+   * Jumbo Invoices — Confirmed bookings for the Jumbo operator in an arrival-date
+   * range, shaped for the "Fulvago Travel Accommodation invoice" form (one
+   * invoice page per booking). Read-only: `jumboInvoiceNo` is null until issued.
+   */
+  private jumboRows(q: JumboRange) {
+    const where: any = {
+      deletedAt: null,
+      hotelStatus: JUMBO_STATUS,
+      tourOperator: { code: JUMBO_OPERATOR_CODE },
+    };
+    if (q.from || q.to) {
+      where.arrivalDate = {};
+      if (q.from) where.arrivalDate.gte = q.from;
+      if (q.to)   where.arrivalDate.lte = q.to;
+    }
+    return this.prisma.booking.findMany({
+      where,
+      orderBy: [{ arrivalDate: "asc" }, { toBookingRef: "asc" }],
+      select: {
+        id: true, toBookingRef: true, jumboInvoiceNo: true,
+        bookingDate: true, arrivalDate: true, departureDate: true,
+        hotelStatus: true, numRooms: true, roomCategory: true, roomCatsJson: true,
+        adults: true, children: true, infants: true,
+        bookingCurrency: true, sellingUsd: true, sellingEur: true, sellingEgp: true,
+        guestNames: true,
+        guestNameList: { orderBy: { sortOrder: "asc" }, select: { title: true, name: true, type: true, room: true } },
+        hotel:         { select: { id: true, name: true } },
+        hotelRoomType: { select: { id: true, name: true } },
+        tourOperator:  { select: { id: true, code: true, name: true } },
+      },
+    });
+  }
+
+  @Get("jumbo-invoices")
+  jumboInvoices(@Query(new ZodValidationPipe(jumboRange)) q: JumboRange) {
+    return this.jumboRows(q);
+  }
+
+  /**
+   * Issue the invoice numbers for a range and return the same rows with
+   * `jumboInvoiceNo` filled in. A booking keeps the number it was first given,
+   * so re-generating a range reprints identical invoices; only bookings without
+   * a number consume from the counter. The counter is per arrival year
+   * ({yyyy}0000, restarting at 0001 each year) and is advanced inside the same
+   * transaction that stamps the bookings.
+   */
+  @Post("jumbo-invoices/issue")
+  async issueJumboInvoices(@Body(new ZodValidationPipe(jumboRange)) q: JumboRange) {
+    const rows = await this.jumboRows(q);
+    const pending = rows.filter((r) => !r.jumboInvoiceNo);
+    if (!pending.length) return rows;
+
+    // Group the unnumbered bookings by arrival year — each year has its own counter.
+    const byYear = new Map<number, typeof pending>();
+    for (const b of pending) {
+      const year = b.arrivalDate.getUTCFullYear();
+      const list = byYear.get(year);
+      if (list) list.push(b);
+      else byYear.set(year, [b]);
+    }
+
+    const issued = new Map<string, string>();
+    await this.prisma.$transaction(async (tx) => {
+      for (const [year, list] of byYear) {
+        const key = jumboSeqKey(year);
+        const cfg = await tx.systemConfig.findUnique({ where: { key } });
+        const stored = cfg ? Number(cfg.value) : NaN;
+        let next = Number.isFinite(stored) && stored > 0 ? stored : (JUMBO_SEQ_SEED[year] ?? 1);
+        for (const b of list) {
+          const no = `${year}${String(next).padStart(4, "0")}`;
+          await tx.booking.update({ where: { id: b.id }, data: { jumboInvoiceNo: no } });
+          issued.set(b.id, no);
+          next++;
+        }
+        await tx.systemConfig.upsert({
+          where: { key }, update: { value: String(next) }, create: { key, value: String(next) },
+        });
+      }
+    });
+
+    return rows.map((r) => (r.jumboInvoiceNo ? r : { ...r, jumboInvoiceNo: issued.get(r.id) ?? null }));
   }
 
   /**

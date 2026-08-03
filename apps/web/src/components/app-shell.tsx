@@ -34,6 +34,7 @@ import {
   KeySquare,
   Building2,
   Receipt,
+  FileText,
 } from "lucide-react";
 import { hasRole, type Role } from "@itour/shared";
 import { useAuth } from "@/components/auth-provider";
@@ -70,6 +71,7 @@ const REPORTS: NavItem[] = [
   { href: "/reports/departure-transfers", label: "Departure Transfers",  icon: Car },
   { href: "/reports/booking-finance",     label: "Booking Finance",      icon: TrendingUp },
   { href: "/reports/invoices-review",     label: "Invoices Review",      icon: Receipt },
+  { href: "/reports/jumbo-invoices",      label: "Jumbo Invoices",       icon: FileText },
   { href: "/reports/hotel-payment",       label: "Hotel Payment",        icon: Wallet },
   { href: "/reports/payment-options",     label: "Payment Options",      icon: CreditCard },
   { href: "/reports/ebd-list",            label: "EBD List",             icon: Tag },
