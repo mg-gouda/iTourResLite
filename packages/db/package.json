@@ -13,6 +13,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "push": "prisma db push",
     "seed": "tsx prisma/seed.ts",
+    "backfill:invoice-due": "tsx prisma/backfill-invoice-due-date.ts",
     "studio": "prisma studio",
     "typecheck": "tsc --noEmit"
   },

@@ -1,6 +1,9 @@
 import { Body, Controller, ForbiddenException, Get, Post, Query } from "@nestjs/common";
 import { z } from "zod";
-import { zBookingStatus, computePaidTotals, round2, nights, canIssueInvoices, type SessionUser } from "@itour/shared";
+import {
+  zBookingStatus, computePaidTotals, round2, nights, canIssueInvoices,
+  JUMBO_OPERATOR_CODE, JUMBO_INVOICE_STATUS, type SessionUser,
+} from "@itour/shared";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { CurrentUser } from "../../common/current-user.decorator";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -44,10 +47,15 @@ const jumboIssue = z.object({
 });
 type JumboIssue = z.infer<typeof jumboIssue>;
 
-/** The operator these invoices are issued to (JUMBOLINE ACCOMMODATIONS & SERVICES S.L.U.). */
-const JUMBO_OPERATOR_CODE = "JMB";
-/** Only Confirmed bookings are invoiced. */
-const JUMBO_STATUS = "Confirmed";
+/** SOA Statement — due-date and arrival-date ranges; operator + status are fixed. */
+const soaRange = z.object({
+  dueFrom:     z.coerce.date().optional(),
+  dueTo:       z.coerce.date().optional(),
+  arrivalFrom: z.coerce.date().optional(),
+  arrivalTo:   z.coerce.date().optional(),
+});
+type SoaRange = z.infer<typeof soaRange>;
+
 /**
  * First number of the sequence for a given year; every other year starts at 1.
  * 2026 continues the manually-issued run, which reached 0145.
@@ -180,7 +188,7 @@ export class ReportsController {
   private jumboRows(q: JumboRange, ids?: string[]) {
     const where: any = {
       deletedAt: null,
-      hotelStatus: JUMBO_STATUS,
+      hotelStatus: JUMBO_INVOICE_STATUS,
       tourOperator: { code: JUMBO_OPERATOR_CODE },
     };
     // The operator/status conditions above still apply to an explicit selection,
@@ -266,6 +274,45 @@ export class ReportsController {
     });
 
     return rows.map((r) => (r.jumboInvoiceNo ? r : { ...r, jumboInvoiceNo: issued.get(r.id) ?? null }));
+  }
+
+  /**
+   * SOA Statement — the statement of account sent to Jumbo: one row per
+   * Confirmed JMB booking, carrying the supplier invoice number issued by the
+   * Jumbo Invoices report, the room type, the operator reference, the selling
+   * amount, and the invoice/due dates. Tax is always 0 / 0 / VAT for this
+   * operator. Filters: invoice-due-date range and arrival-date range (operator
+   * and status are fixed).
+   */
+  @Get("soa-statement")
+  soaStatement(@Query(new ZodValidationPipe(soaRange)) q: SoaRange) {
+    const where: any = {
+      deletedAt: null,
+      hotelStatus: JUMBO_INVOICE_STATUS,
+      tourOperator: { code: JUMBO_OPERATOR_CODE },
+    };
+    if (q.dueFrom || q.dueTo) {
+      where.invoiceDueDate = {};
+      if (q.dueFrom) where.invoiceDueDate.gte = q.dueFrom;
+      if (q.dueTo)   where.invoiceDueDate.lte = q.dueTo;
+    }
+    if (q.arrivalFrom || q.arrivalTo) {
+      where.arrivalDate = {};
+      if (q.arrivalFrom) where.arrivalDate.gte = q.arrivalFrom;
+      if (q.arrivalTo)   where.arrivalDate.lte = q.arrivalTo;
+    }
+    return this.prisma.booking.findMany({
+      where,
+      orderBy: [{ invoiceDueDate: "asc" }, { jumboInvoiceNo: "asc" }, { toBookingRef: "asc" }],
+      select: {
+        id: true, jumboInvoiceNo: true, toBookingRef: true,
+        arrivalDate: true, departureDate: true, invoiceDueDate: true,
+        bookingCurrency: true, sellingUsd: true, sellingEur: true, sellingEgp: true,
+        hotel:         { select: { id: true, name: true } },
+        hotelRoomType: { select: { id: true, name: true } },
+        tourOperator:  { select: { id: true, code: true, name: true } },
+      },
+    });
   }
 
   /**

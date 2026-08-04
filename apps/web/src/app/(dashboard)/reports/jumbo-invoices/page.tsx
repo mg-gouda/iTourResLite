@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText } from "lucide-react";
-import { fmtDate, nights as calcNights, canIssueInvoices, type Role } from "@itour/shared";
+import { fmtDate, nights as calcNights, canIssueInvoices, invoiceAmount, type Role } from "@itour/shared";
 import { get, post, qs } from "@/lib/api";
 import { useLookups } from "@/lib/lookups";
 import { useAuth } from "@/components/auth-provider";
@@ -50,17 +50,6 @@ function occupancy(b: any, label: (code: string) => string): string {
   return [...counts.entries()]
     .map(([code, n]) => (n > 1 ? `${n} x ${label(code)}` : label(code)))
     .join(" + ");
-}
-
-// Selling total in the booking currency. GBP shares the USD selling column
-// (see the booking form's currency handling); a missing currency is inferred
-// from whichever selling figure is populated.
-function money(b: any): { currency: string; amount: number } {
-  const cur = b.bookingCurrency
-    || (Number(b.sellingEur) ? "EUR" : Number(b.sellingEgp) ? "EGP" : "USD");
-  const amount = cur === "EUR" ? Number(b.sellingEur)
-    : cur === "EGP" ? Number(b.sellingEgp) : Number(b.sellingUsd);
-  return { currency: cur, amount: Number.isFinite(amount) ? amount : 0 };
 }
 
 const paxOf = (b: any) => (Number(b.adults) || 0) + (Number(b.children) || 0) + (Number(b.infants) || 0);
@@ -119,7 +108,7 @@ export default function JumboInvoicesPage() {
   }
 
   const toInvoice = (b: any): JumboInvoice => {
-    const { currency, amount } = money(b);
+    const { currency, amount } = invoiceAmount(b);
     return {
       invoiceNo: b.jumboInvoiceNo ?? "",
       agencyRef: b.toBookingRef ?? "",

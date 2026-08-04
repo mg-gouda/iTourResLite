@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException, Injectable, NotFoundException } 
 import { Prisma } from "@prisma/client";
 import {
   deriveBooking, plUsd, plEur, plEgp, round2, ACCOUNTANT_EDITABLE_FIELDS,
+  invoiceDueDate, JUMBO_OPERATOR_CODE,
   type BookingQueryDto, type BookingWriteDto, type SessionUser, type RateChangeEntry,
 } from "@itour/shared";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -134,6 +135,19 @@ export class BookingsService {
     });
   }
 
+  /**
+   * Invoice due date for a booking — arrival + 45 days, but only for the Jumbo
+   * operator (the SOA Statement covers JMB alone); every other operator keeps
+   * it null. Derived server-side, never accepted from the client.
+   */
+  private async invoiceDueFor(tourOperatorId: string, arrivalDate: Date): Promise<Date | null> {
+    const op = await this.prisma.tourOperator.findUnique({
+      where: { id: tourOperatorId },
+      select: { code: true },
+    });
+    return op?.code === JUMBO_OPERATOR_CODE ? invoiceDueDate(arrivalDate) : null;
+  }
+
   async create(dto: BookingWriteDto, user: SessionUser) {
     const { guestList, overrideStopSale, ...bookingData } = dto as any;
     if (!overrideStopSale) {
@@ -144,6 +158,7 @@ export class BookingsService {
     delete bookingData.paidDate;
     bookingData.bookingPaid = false;
     bookingData.paidDate = null;
+    bookingData.invoiceDueDate = await this.invoiceDueFor(dto.tourOperatorId, dto.arrivalDate);
     const internalRef = await this.generateInternalRef();
     const created = await this.prisma.booking.create({
       data: { ...bookingData, internalRef, createdById: user.id },
@@ -182,6 +197,12 @@ export class BookingsService {
     if (!overrideStopSale && datesOrHotelChanged) {
       await this.assertNoStopSaleConflict(hotelId, roomTypeId, arrivalDate, departureDate);
     }
+
+    // Recompute the invoice due date on every edit: it follows the arrival date
+    // and the operator, and either can change here. Recomputing unconditionally
+    // also backfills a legacy row the first time it is touched.
+    const operatorId = (bookingData.tourOperatorId ?? existing.tourOperatorId) as string;
+    bookingData.invoiceDueDate = await this.invoiceDueFor(operatorId, arrivalDate);
 
     // Capture rate history when cost decreases in booking currency
     const currency = (bookingData.bookingCurrency ?? existing.bookingCurrency ?? "EUR") as string;

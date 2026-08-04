@@ -239,6 +239,10 @@ model Booking {
   // (key "jumboInvoiceSeq:<year>") so re-generating a range reprints the same
   // numbers instead of consuming new ones.
   jumboInvoiceNo   String?   @unique
+  // SOA Statement report: when the operator invoice falls due — arrival + 45
+  // days. Stamped server-side on create and recomputed on every update, for
+  // Jumbo (JMB) bookings only; null for every other operator.
+  invoiceDueDate   DateTime?
   createdById      String?
   createdBy        User?         @relation("CreatedBy", fields: [createdById], references: [id])
   deletedAt        DateTime?
@@ -249,6 +253,7 @@ model Booking {
   @@index([hotelId, arrivalDate, departureDate])
   @@index([hotelRoomTypeId])
   @@index([hotelStatus])
+  @@index([invoiceDueDate])
 }
 
 // A payment made to a hotel for a booking. Multiple rows allow deposit +
