@@ -81,8 +81,11 @@ export default function BookingFinancePage() {
     ] },
   ];
 
-  const EXPORT_COLS = ["Ref", "Hotel", "Arr Date", "Dep Date", "Status", "Rooms", "Cost USD", "Sell USD", "P/L USD", "Cost EUR", "Sell EUR", "P/L EUR", "Cost EGP", "Sell EGP", "P/L EGP", "Pay Method"];
-  const EXPORT_ALIGNS = EXPORT_COLS.map((c, i) => (i >= 5 && c !== "Pay Method" ? "right" : "left")) as ("left" | "right")[];
+  const EXPORT_COLS = ["Ref", "Hotel", "Arr Date", "Dep Date", "Invoice Due Date", "Status", "Rooms", "Cost USD", "Sell USD", "P/L USD", "Cost EUR", "Sell EUR", "P/L EUR", "Cost EGP", "Sell EGP", "P/L EGP", "Pay Method"];
+  // Right-align by column name, not position — inserting a column must not
+  // silently shift the alignment of the ones after it.
+  const RIGHT_COLS = new Set(["Rooms", "Cost USD", "Sell USD", "P/L USD", "Cost EUR", "Sell EUR", "P/L EUR", "Cost EGP", "Sell EGP", "P/L EGP"]);
+  const EXPORT_ALIGNS = EXPORT_COLS.map((c) => (RIGHT_COLS.has(c) ? "right" : "left")) as ("left" | "right")[];
 
   function buildExport(): ExportSpec {
     return {
@@ -92,6 +95,7 @@ export default function BookingFinancePage() {
       aligns: EXPORT_ALIGNS,
       rows: rows.map((b) => [
         b.toBookingRef, b.hotel?.name ?? "", fmtDate(b.arrivalDate), fmtDate(b.departureDate),
+        b.invoiceDueDate ? fmtDate(b.invoiceDueDate) : "",
         b.hotelStatus, b.numRooms,
         Number(b.costUsd), Number(b.sellingUsd), plUsd(b.costUsd, b.sellingUsd),
         Number(b.costEur), Number(b.sellingEur), plEur(b.costEur, b.sellingEur, b.visaHandling),
@@ -155,7 +159,7 @@ export default function BookingFinancePage() {
         <CardContent className="p-0">
           {!from && !to && !hotelId && !status ? (
             <EmptyState title="Set a filter" description="Select dates, a hotel or a status to load the finance report." />
-          ) : query.isLoading ? <TableSkeleton rows={8} cols={10} />
+          ) : query.isLoading ? <TableSkeleton rows={8} cols={15} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !rows.length ? <EmptyState title="No bookings" />
           : (
@@ -163,7 +167,7 @@ export default function BookingFinancePage() {
               <Table>
                 <THead>
                   <TR>
-                    <TH>Ref</TH><TH>Hotel</TH><TH>Arr</TH><TH>Status</TH>
+                    <TH>Ref</TH><TH>Hotel</TH><TH>Arr</TH><TH>Invoice Due</TH><TH>Status</TH>
                     <TH className="text-right">Cost USD</TH><TH className="text-right">Sell USD</TH><TH className="text-right">P/L USD</TH>
                     <TH className="text-right">Cost EUR</TH><TH className="text-right">Sell EUR</TH><TH className="text-right">P/L EUR</TH>
                     <TH className="text-right">Cost EGP</TH><TH className="text-right">Sell EGP</TH><TH className="text-right">P/L EGP</TH>
@@ -176,6 +180,9 @@ export default function BookingFinancePage() {
                       <TD className="font-medium">{b.toBookingRef}</TD>
                       <TD className="max-w-[12rem] truncate">{b.hotel?.name}</TD>
                       <TD>{fmtDate(b.arrivalDate)}</TD>
+                      <TD className="whitespace-nowrap">
+                        {b.invoiceDueDate ? fmtDate(b.invoiceDueDate) : <span className="text-muted-foreground">—</span>}
+                      </TD>
                       <TD>{b.hotelStatus}</TD>
                       <TD className="text-right tabular-nums">{formatMoney(b.costUsd, "USD")}</TD>
                       <TD className="text-right tabular-nums">{formatMoney(b.sellingUsd, "USD")}</TD>

@@ -148,6 +148,7 @@ export class ReportsController {
       orderBy: { arrivalDate: "asc" },
       select: {
         id: true, toBookingRef: true, arrivalDate: true, departureDate: true,
+        invoiceDueDate: true,
         hotelStatus: true, numRooms: true, bookingCurrency: true,
         costUsd: true, sellingUsd: true,
         costEur: true, sellingEur: true, visaHandling: true,
