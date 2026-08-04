@@ -29,7 +29,13 @@ Apply the schema **before** deploying app code (this repo has no migration
 history — it syncs directly):
 ```bash
 docker compose -f docker-compose.prod.yml --profile setup run --rm migrate
-# runs: prisma db push + seed
+# runs: prisma generate + prisma db push. Never seeds.
+```
+The seed is a **separate, fresh-install-only** service — it rewrites
+lookups/hotels/demo users, and with `FORCE_SEED=true` deletes every booking and
+stop sale to re-import the legacy spreadsheet. Never run it on a live database:
+```bash
+docker compose -f docker-compose.prod.yml --profile seed run --rm seed
 ```
 
 ### Exceptions

@@ -25,14 +25,17 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot: sync schema (db push) + seed, then exit.
+  # One-shot: sync the schema (db push), then exit. It never seeds — the seed
+  # rewrites lookups/hotels/users and (with FORCE_SEED=true) deletes every
+  # booking and stop sale to re-import the legacy spreadsheet. That has no place
+  # in a schema sync on a live database; use the `seed` service below instead.
   migrate:
     # Reuses the image built by the `api` service (same tag) — no separate build
     # to avoid a concurrent export collision on the shared tag.
     image: itour-api:local
     restart: "no"
     # HARDENING: under the "setup" profile, so a plain `docker compose up -d`
-    # (and the systemd boot unit) never runs it. Run schema push / seed
+    # (and the systemd boot unit) never runs it. Run the schema push
     # explicitly and intentionally with:
     #   docker compose -f docker-compose.prod.yml --profile setup run --rm migrate
     profiles: ["setup"]
@@ -41,7 +44,28 @@ services:
     command:
       - sh
       - -c
-      - pnpm --filter @itour/db generate && pnpm --filter @itour/db push --skip-generate && (pnpm --filter @itour/db seed || true)
+      - pnpm --filter @itour/db generate && pnpm --filter @itour/db push --skip-generate
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # One-shot: seed — upserts lookups/hotels/demo users and imports the legacy
+  # spreadsheet. Fresh installs only; its own "seed" profile keeps it out of
+  # every other command. seed.ts leaves bookings alone once any exist, so the
+  # booking/stop-sale wipe needs FORCE_SEED=true on top:
+  #   docker compose -f docker-compose.prod.yml --profile seed run --rm seed
+  #   docker compose -f docker-compose.prod.yml --profile seed run --rm \
+  #     -e FORCE_SEED=true seed          # DESTRUCTIVE: re-imports bookings
+  seed:
+    image: itour-api:local
+    restart: "no"
+    profiles: ["seed"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-itour}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-itour}?schema=public
+    command:
+      - sh
+      - -c
+      - pnpm --filter @itour/db generate && pnpm --filter @itour/db seed
     depends_on:
       postgres:
         condition: service_healthy
