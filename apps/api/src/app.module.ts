@@ -14,6 +14,7 @@ import { ReportsModule } from "./modules/reports/reports.module";
 import { ProfileModule } from "./modules/profile/profile.module";
 import { LicenseModule } from "./modules/license/license.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
+import { FxModule } from "./modules/fx/fx.module";
 import { HealthController } from "./modules/health/health.controller";
 import { JwtAuthGuard } from "./common/jwt-auth.guard";
 import { RolesGuard } from "./common/roles.guard";
@@ -34,6 +35,7 @@ import { RolesGuard } from "./common/roles.guard";
     ProfileModule,
     LicenseModule,
     PermissionsModule,
+    FxModule,
   ],
   controllers: [HealthController],
   providers: [
