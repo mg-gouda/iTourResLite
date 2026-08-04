@@ -67,8 +67,8 @@ export default function InvoicesReviewPage() {
     ],
   }));
 
-  const EXPORT_COLS = ["Operator", "Booking Date", "Operator Reference", "Hotel Name", "Arrival", "Departure", "Guest Name", "Cost USD", "Selling USD", "Cost EUR", "Selling EUR", "Cost EGP", "Selling EGP"];
-  const EXPORT_ALIGNS = ["left", "left", "left", "left", "left", "left", "left", "right", "right", "right", "right", "right", "right"] as ("left" | "right")[];
+  const EXPORT_COLS = ["Operator", "Booking Date", "Operator Reference", "Hotel Name", "Arrival", "Departure", "Invoice Due Date", "Guest Name", "Cost USD", "Selling USD", "Cost EUR", "Selling EUR", "Cost EGP", "Selling EGP"];
+  const EXPORT_ALIGNS = ["left", "left", "left", "left", "left", "left", "left", "left", "right", "right", "right", "right", "right", "right"] as ("left" | "right")[];
 
   function buildExport(): ExportSpec {
     return {
@@ -78,7 +78,8 @@ export default function InvoicesReviewPage() {
       aligns: EXPORT_ALIGNS,
       rows: rows.map((b) => [
         operatorLabel(b), fmtDate(b.bookingDate), b.toBookingRef, b.hotel?.name ?? "",
-        fmtDate(b.arrivalDate), fmtDate(b.departureDate), guestLabel(b),
+        fmtDate(b.arrivalDate), fmtDate(b.departureDate),
+        b.invoiceDueDate ? fmtDate(b.invoiceDueDate) : "", guestLabel(b),
         Number(b.costUsd), Number(b.sellingUsd),
         Number(b.costEur), Number(b.sellingEur),
         Number(b.costEgp), Number(b.sellingEgp),
@@ -127,7 +128,7 @@ export default function InvoicesReviewPage() {
         <CardContent className="p-0">
           {!from && !to && !tourOperatorIds.length && !status ? (
             <EmptyState title="Set a filter" description="Select an arrival-date range, operator or booking status to load the report." />
-          ) : query.isLoading ? <TableSkeleton rows={8} cols={13} />
+          ) : query.isLoading ? <TableSkeleton rows={8} cols={14} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !rows.length ? <EmptyState title="No bookings" />
           : (
@@ -136,7 +137,7 @@ export default function InvoicesReviewPage() {
                 <THead>
                   <TR>
                     <TH>Operator</TH><TH>Booking Date</TH><TH>Operator Reference</TH><TH>Hotel Name</TH>
-                    <TH>Arrival</TH><TH>Departure</TH><TH>Guest Name</TH>
+                    <TH>Arrival</TH><TH>Departure</TH><TH>Invoice Due Date</TH><TH>Guest Name</TH>
                     <TH className="text-right">Cost USD</TH><TH className="text-right">Selling USD</TH>
                     <TH className="text-right">Cost EUR</TH><TH className="text-right">Selling EUR</TH>
                     <TH className="text-right">Cost EGP</TH><TH className="text-right">Selling EGP</TH>
@@ -151,6 +152,9 @@ export default function InvoicesReviewPage() {
                       <TD className="max-w-[12rem] truncate">{b.hotel?.name}</TD>
                       <TD className="whitespace-nowrap">{fmtDate(b.arrivalDate)}</TD>
                       <TD className="whitespace-nowrap">{fmtDate(b.departureDate)}</TD>
+                      <TD className="whitespace-nowrap">
+                        {b.invoiceDueDate ? fmtDate(b.invoiceDueDate) : <span className="text-muted-foreground">—</span>}
+                      </TD>
                       <TD className="max-w-[14rem] truncate" title={guestLabel(b)}>{guestLabel(b)}</TD>
                       <TD className="text-right tabular-nums">{formatMoney(b.costUsd, "USD")}</TD>
                       <TD className="text-right tabular-nums">{formatMoney(b.sellingUsd, "USD")}</TD>

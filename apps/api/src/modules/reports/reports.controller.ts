@@ -171,6 +171,7 @@ export class ReportsController {
       orderBy: [{ arrivalDate: "asc" }, { tourOperator: { code: "asc" } }, { toBookingRef: "asc" }],
       select: {
         id: true, toBookingRef: true, bookingDate: true, arrivalDate: true, departureDate: true,
+        invoiceDueDate: true,
         hotelStatus: true, guestNames: true, bookingCurrency: true,
         costUsd: true, sellingUsd: true, costEur: true, sellingEur: true, costEgp: true, sellingEgp: true,
         guestNameList: { orderBy: { sortOrder: "asc" }, select: { title: true, name: true, type: true, room: true } },
