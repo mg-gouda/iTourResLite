@@ -1317,17 +1317,7 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Financials &amp; Payment</CardTitle>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">Invoice Due Date</span>
-                  <Input
-                    readOnly
-                    value={invoiceDueDisplay}
-                    className={`h-8 w-28 text-sm ${readOnlyCls}`}
-                    title="Set automatically for Jumbo (JMB) bookings — 45 days after arrival."
-                    aria-label="Invoice due date"
-                  />
-                </div>
+              <div className="flex gap-2">
                 {bookingId && (
                   <Button type="button" variant="outline" size="sm" onClick={handleInvoice}>
                     <FileText className="size-4" /> Invoice
@@ -1389,6 +1379,9 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
             <Field label="Payment Method"><Combobox options={payMethodOpts} value={form.paymentMethod} disabled={dis("paymentMethod")} onChange={(v) => set("paymentMethod", v)} /></Field>
             <Field label="Payment Option Date">
               <DateInput value={form.paymentOptionDate} disabled={dis("paymentOptionDate")} onChange={(v) => set("paymentOptionDate", v)} />
+            </Field>
+            <Field label="Invoice Due Date" hint="Jumbo (JMB) bookings only — 45 days after arrival.">
+              <Input readOnly value={invoiceDueDisplay} className={readOnlyCls} aria-label="Invoice due date" />
             </Field>
 
             {/* ── Payments & Credit Notes (Accountant / Manager) ── */}
