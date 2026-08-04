@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Save, Trash2, Search, ArrowLeft, Mail, Plus, X, AlertTriangle, Sparkles, Calculator, Info, Download, FileText } from "lucide-react";
 import {
   nights as calcNights, plUsd, plEur, plEgp, ebdAmountUsd, ebdAmountEur, ebdAmountEgp,
-  formatMoney,
+  formatMoney, fmtDate, invoiceDueDate, JUMBO_OPERATOR_CODE,
   ACCOUNTANT_EDITABLE_FIELDS, canDeleteBooking, canEditPayment,
   type Role, type RateChangeEntry,
 } from "@itour/shared";
@@ -963,6 +963,15 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
   const currencyOpts = lookups.data?.currencies ?? [];
   const readOnlyCls = "bg-secondary/40 text-foreground";
 
+  // Invoice due date — derived, never submitted: the API stamps arrival + 45
+  // days on Jumbo (JMB) bookings only. Recomputed from the form so the field
+  // previews exactly what will be stored once the booking is saved.
+  const operatorCode = (lookups.data?.tourOperators ?? [])
+    .find((o) => o.id === form.tourOperatorId)?.code;
+  const invoiceDueDisplay = operatorCode === JUMBO_OPERATOR_CODE && form.arrivalDate
+    ? fmtDate(invoiceDueDate(form.arrivalDate))
+    : "—";
+
   const cur = form.bookingCurrency;
   const showUsd = !cur || cur === "USD" || cur === "GBP";
   const showEur = !cur || cur === "EUR";
@@ -1308,7 +1317,17 @@ export function BookingForm({ bookingId }: { bookingId?: string }) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Financials &amp; Payment</CardTitle>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">Invoice Due Date</span>
+                  <Input
+                    readOnly
+                    value={invoiceDueDisplay}
+                    className={`h-8 w-28 text-sm ${readOnlyCls}`}
+                    title="Set automatically for Jumbo (JMB) bookings — 45 days after arrival."
+                    aria-label="Invoice due date"
+                  />
+                </div>
                 {bookingId && (
                   <Button type="button" variant="outline" size="sm" onClick={handleInvoice}>
                     <FileText className="size-4" /> Invoice
