@@ -62,7 +62,7 @@ const EMPTY: S = {
   hasEbd: "false", hasSpo: "false", sejourSpoCode: "", spoDate: "",
 };
 
-const TITLES = ["Mr", "Mrs", "Ms", "Miss", "Mstr", "Dr"];
+const TITLES = ["Mr", "Mrs", "Ms", "Miss", "Mstr", "Dr", "CHD", "INF"];
 const num = (v: string) => (v === "" || v == null ? 0 : Number(v) || 0);
 const optDate = (v: string) => (v ? v : undefined);
 const optStr = (v: string) => (v.trim() ? v.trim() : undefined);
