@@ -13,7 +13,7 @@ const dateRange = z.object({
   to:   z.coerce.date().optional(),
   arrivalFrom: z.coerce.date().optional(),
   arrivalTo:   z.coerce.date().optional(),
-  hotelId:        z.string().optional(),
+  hotelId:        z.union([z.string(), z.array(z.string())]).optional(),
   tourOperatorId: z.union([z.string(), z.array(z.string())]).optional(),
   marketId:       z.string().optional(),
   resortId:       z.string().optional(),
@@ -24,11 +24,11 @@ const dateRange = z.object({
 type DateRange = z.infer<typeof dateRange>;
 
 /**
- * Operator filter — accepts a single id or a list (multi-select). Returns a
+ * Id-list filter — accepts a single id or a list (multi-select). Returns a
  * Prisma equality for one id, an `in` clause for several, or undefined when
  * the list is empty so the caller drops the filter entirely.
  */
-function operatorFilter(v: string | string[]): string | { in: string[] } | undefined {
+function idListFilter(v: string | string[]): string | { in: string[] } | undefined {
   const ids = (Array.isArray(v) ? v : [v]).filter(Boolean);
   if (ids.length === 0) return undefined;
   return ids.length === 1 ? ids[0] : { in: ids };
@@ -70,8 +70,8 @@ export class ReportsController {
 
   private baseWhere(q: DateRange, dateField: "arrivalDate" | "departureDate" | "paymentOptionDate" = "arrivalDate") {
     const where: any = { deletedAt: null };
-    if (q.hotelId)        where.hotelId = q.hotelId;
-    if (q.tourOperatorId) where.tourOperatorId = operatorFilter(q.tourOperatorId);
+    if (q.hotelId)        where.hotelId = idListFilter(q.hotelId);
+    if (q.tourOperatorId) where.tourOperatorId = idListFilter(q.tourOperatorId);
     if (q.marketId)       where.marketId = q.marketId;
     if (q.resortId)       where.resortId = q.resortId;
     if (q.status)         where.hotelStatus = q.status;
@@ -325,8 +325,8 @@ export class ReportsController {
   @Get("hotel-payment")
   async hotelPayment(@Query(new ZodValidationPipe(dateRange)) q: DateRange) {
     const where: any = { deletedAt: null };
-    if (q.hotelId)        where.hotelId = q.hotelId;
-    if (q.tourOperatorId) where.tourOperatorId = operatorFilter(q.tourOperatorId);
+    if (q.hotelId)        where.hotelId = idListFilter(q.hotelId);
+    if (q.tourOperatorId) where.tourOperatorId = idListFilter(q.tourOperatorId);
     if (q.marketId)       where.marketId = q.marketId;
     if (q.resortId)       where.resortId = q.resortId;
     if (q.status)         where.hotelStatus = q.status;

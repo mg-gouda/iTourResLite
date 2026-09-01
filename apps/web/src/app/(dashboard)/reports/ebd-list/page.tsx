@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { DateInput } from "@/components/ui/date-input";
 import { Button } from "@/components/ui/button";
-import { AsyncCombobox } from "@/components/ui/async-combobox";
+import { AsyncMultiCombobox } from "@/components/ui/async-combobox";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
 import { ExportButtons } from "@/components/export-buttons";
@@ -23,19 +23,19 @@ import type { ExportSpec } from "@/lib/export";
 export default function EbdListPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [hotelId, setHotelId] = useState("");
-  const [hotelLabel, setHotelLabel] = useState("");
-  const filters = { from, to, hotelId };
+  const [hotelIds, setHotelIds] = useState<string[]>([]);
+  const [hotelLabels, setHotelLabels] = useState<Record<string, string>>({});
+  const filters = { from, to, hotelId: hotelIds };
 
   const query = useQuery({
     queryKey: ["report-ebd-list", filters],
     queryFn: () => get<any[]>(`/reports/ebd-list${qs(filters)}`),
-    enabled: !!(from || to || hotelId),
+    enabled: !!(from || to || hotelIds.length),
   });
 
   const rows = query.data ?? [];
-  const hasFilters = !!(from || to || hotelId);
-  const clearFilters = () => { setFrom(""); setTo(""); setHotelId(""); setHotelLabel(""); };
+  const hasFilters = !!(from || to || hotelIds.length);
+  const clearFilters = () => { setFrom(""); setTo(""); setHotelIds([]); setHotelLabels({}); };
   const currencyTotals = [
     { currency: "USD", rows: [
       { label: "Cost", value: round2(rows.reduce((a, b) => a + Number(b.costUsd ?? 0), 0)) },
@@ -50,6 +50,11 @@ export default function EbdListPage() {
       { label: "EBD", value: round2(rows.reduce((a, b) => a + ebdAmountEgp(Number(b.ebdPercent), b.costEgp ?? 0), 0)) },
     ] },
   ];
+  // EBD Pre-Payment totals, shown below the results table — one per currency
+  // that carries a non-zero EBD figure.
+  const ebdPrepaymentTotals = currencyTotals
+    .map((t) => ({ currency: t.currency, value: t.rows.find((r) => r.label === "EBD")?.value ?? 0 }))
+    .filter((t) => Math.abs(t.value) > 0.005);
 
   function buildExport(): ExportSpec {
     return {
@@ -96,8 +101,8 @@ export default function EbdListPage() {
           <Field label="Arrival From"><DateInput value={from} onChange={setFrom} /></Field>
           <Field label="Arrival To"><DateInput value={to} onChange={setTo} /></Field>
           <Field label="Hotel">
-            <AsyncCombobox fetcher={fetchHotelOptions} value={hotelId} label={hotelLabel}
-              onChange={(v, l) => { setHotelId(v); setHotelLabel(l); }} placeholder="Any hotel" />
+            <AsyncMultiCombobox fetcher={fetchHotelOptions} values={hotelIds} labels={hotelLabels}
+              onChange={(v, l) => { setHotelIds(v); setHotelLabels(l); }} placeholder="Any hotel" />
           </Field>
           <div className="flex items-end">
             <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
@@ -110,7 +115,7 @@ export default function EbdListPage() {
 
       <Card>
         <CardContent className="p-0">
-          {!from && !to && !hotelId ? (
+          {!from && !to && !hotelIds.length ? (
             <EmptyState title="Set a filter" description="Select dates or a hotel to load the EBD list." />
           ) : query.isLoading ? <TableSkeleton rows={8} cols={10} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
@@ -154,6 +159,22 @@ export default function EbdListPage() {
           )}
         </CardContent>
       </Card>
+
+      {ebdPrepaymentTotals.length > 0 && (
+        <Card className="mt-4">
+          <CardContent className="p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">EBD Pre-Payment Totals</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {ebdPrepaymentTotals.map((t) => (
+                <div key={t.currency} className="flex items-center justify-between gap-4 rounded-md border border-border p-3 text-sm">
+                  <span className="text-muted-foreground">EBD Pre-Payment {t.currency}</span>
+                  <span className="tabular-nums font-semibold">{formatMoney(t.value, t.currency)}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
