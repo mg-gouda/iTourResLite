@@ -17,9 +17,11 @@ const dateRange = z.object({
   tourOperatorId: z.union([z.string(), z.array(z.string())]).optional(),
   marketId:       z.string().optional(),
   resortId:       z.string().optional(),
-  status:         zBookingStatus.optional(),
+  status:         z.union([zBookingStatus, z.array(zBookingStatus)]).optional(),
   paid:           z.enum(["paid", "partial", "unpaid"]).optional(),
   creditNote:     z.enum(["any", "remaining"]).optional(),
+  ebdPayFrom:     z.coerce.date().optional(),
+  ebdPayTo:       z.coerce.date().optional(),
 });
 type DateRange = z.infer<typeof dateRange>;
 
@@ -74,7 +76,7 @@ export class ReportsController {
     if (q.tourOperatorId) where.tourOperatorId = idListFilter(q.tourOperatorId);
     if (q.marketId)       where.marketId = q.marketId;
     if (q.resortId)       where.resortId = q.resortId;
-    if (q.status)         where.hotelStatus = q.status;
+    if (q.status)         where.hotelStatus = idListFilter(q.status);
     if (q.from || q.to) {
       where[dateField] = {};
       if (q.from) where[dateField].gte = q.from;
@@ -329,7 +331,7 @@ export class ReportsController {
     if (q.tourOperatorId) where.tourOperatorId = idListFilter(q.tourOperatorId);
     if (q.marketId)       where.marketId = q.marketId;
     if (q.resortId)       where.resortId = q.resortId;
-    if (q.status)         where.hotelStatus = q.status;
+    if (q.status)         where.hotelStatus = idListFilter(q.status);
     // Payment status: paid = fully settled; partial = some payments but not full;
     // unpaid = no payments at all. bookingPaid is the derived fully-paid flag.
     if (q.paid === "paid")    where.bookingPaid = true;
@@ -428,11 +430,17 @@ export class ReportsController {
   /** EBD List — bookings with EBD% > 0 */
   @Get("ebd-list")
   ebdList(@Query(new ZodValidationPipe(dateRange)) q: DateRange) {
+    const where: any = {
+      ...this.baseWhere(q, "arrivalDate"),
+      ebdPercent: { gt: 0 },
+    };
+    if (q.ebdPayFrom || q.ebdPayTo) {
+      where.ebdPaymentDate = {};
+      if (q.ebdPayFrom) where.ebdPaymentDate.gte = q.ebdPayFrom;
+      if (q.ebdPayTo)   where.ebdPaymentDate.lte = q.ebdPayTo;
+    }
     return this.prisma.booking.findMany({
-      where: {
-        ...this.baseWhere(q, "arrivalDate"),
-        ebdPercent: { gt: 0 },
-      },
+      where,
       orderBy: { arrivalDate: "asc" },
       select: {
         id: true, toBookingRef: true, arrivalDate: true, departureDate: true,

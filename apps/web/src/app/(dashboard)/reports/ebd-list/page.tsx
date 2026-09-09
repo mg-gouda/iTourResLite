@@ -8,13 +8,14 @@ import { get, qs } from "@/lib/api";
 import { ReportCurrencyTotals } from "@/components/report-currency-totals";
 import { ReportTotalCount } from "@/components/report-total-count";
 import { ClearFiltersButton } from "@/components/clear-filters-button";
-import { fetchHotelOptions } from "@/lib/lookups";
+import { fetchHotelOptions, useLookups } from "@/lib/lookups";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { DateInput } from "@/components/ui/date-input";
 import { Button } from "@/components/ui/button";
 import { AsyncMultiCombobox } from "@/components/ui/async-combobox";
+import { MultiCombobox } from "@/components/ui/combobox";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui/states";
 import { ExportButtons } from "@/components/export-buttons";
@@ -25,17 +26,25 @@ export default function EbdListPage() {
   const [to, setTo] = useState("");
   const [hotelIds, setHotelIds] = useState<string[]>([]);
   const [hotelLabels, setHotelLabels] = useState<Record<string, string>>({});
-  const filters = { from, to, hotelId: hotelIds };
+  const [statusIds, setStatusIds] = useState<string[]>([]);
+  const [ebdPayFrom, setEbdPayFrom] = useState("");
+  const [ebdPayTo, setEbdPayTo] = useState("");
+  const lookups = useLookups();
+  const statusOptions = lookups.data?.bookingStatuses ?? [];
+  const filters = { from, to, hotelId: hotelIds, status: statusIds, ebdPayFrom, ebdPayTo };
 
   const query = useQuery({
     queryKey: ["report-ebd-list", filters],
     queryFn: () => get<any[]>(`/reports/ebd-list${qs(filters)}`),
-    enabled: !!(from || to || hotelIds.length),
+    enabled: !!(from || to || hotelIds.length || statusIds.length || ebdPayFrom || ebdPayTo),
   });
 
   const rows = query.data ?? [];
-  const hasFilters = !!(from || to || hotelIds.length);
-  const clearFilters = () => { setFrom(""); setTo(""); setHotelIds([]); setHotelLabels({}); };
+  const hasFilters = !!(from || to || hotelIds.length || statusIds.length || ebdPayFrom || ebdPayTo);
+  const clearFilters = () => {
+    setFrom(""); setTo(""); setHotelIds([]); setHotelLabels({});
+    setStatusIds([]); setEbdPayFrom(""); setEbdPayTo("");
+  };
   const currencyTotals = [
     { currency: "USD", rows: [
       { label: "Cost", value: round2(rows.reduce((a, b) => a + Number(b.costUsd ?? 0), 0)) },
@@ -104,6 +113,11 @@ export default function EbdListPage() {
             <AsyncMultiCombobox fetcher={fetchHotelOptions} values={hotelIds} labels={hotelLabels}
               onChange={(v, l) => { setHotelIds(v); setHotelLabels(l); }} placeholder="Any hotel" />
           </Field>
+          <Field label="Booking Status">
+            <MultiCombobox options={statusOptions} values={statusIds} onChange={setStatusIds} placeholder="Any status" />
+          </Field>
+          <Field label="EBD Pay Day From"><DateInput value={ebdPayFrom} onChange={setEbdPayFrom} /></Field>
+          <Field label="EBD Pay Day To"><DateInput value={ebdPayTo} onChange={setEbdPayTo} /></Field>
           <div className="flex items-end">
             <ClearFiltersButton onClear={clearFilters} disabled={!hasFilters} />
           </div>
@@ -115,8 +129,8 @@ export default function EbdListPage() {
 
       <Card>
         <CardContent className="p-0">
-          {!from && !to && !hotelIds.length ? (
-            <EmptyState title="Set a filter" description="Select dates or a hotel to load the EBD list." />
+          {!hasFilters ? (
+            <EmptyState title="Set a filter" description="Select dates, a hotel, status, or EBD pay day to load the EBD list." />
           ) : query.isLoading ? <TableSkeleton rows={8} cols={10} />
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : !query.data?.length ? <EmptyState title="No EBD bookings" />
