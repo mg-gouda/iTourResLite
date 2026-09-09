@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { Download, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import { formatMoney, fmtDate, ebdAmountUsd, ebdAmountEur, ebdAmountEgp, round2 } from "@itour/shared";
 import { get, qs } from "@/lib/api";
 import { ReportCurrencyTotals } from "@/components/report-currency-totals";
@@ -64,6 +64,54 @@ export default function EbdListPage() {
   const ebdPrepaymentTotals = currencyTotals
     .map((t) => ({ currency: t.currency, value: t.rows.find((r) => r.label === "EBD")?.value ?? 0 }))
     .filter((t) => Math.abs(t.value) > 0.005);
+
+  type SortKey = "ref" | "hotel" | "roomType" | "arrDate" | "ebdPercent"
+    | "costUsd" | "ebdUsd" | "costEur" | "ebdEur" | "costEgp" | "ebdEgp" | "ebdPayDate";
+  const [sortKey, setSortKey] = useState<SortKey>("arrDate");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+  function sortIcon(key: SortKey) {
+    if (sortKey !== key) return <ArrowUpDown className="size-3 opacity-40" />;
+    return sortDir === "asc" ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />;
+  }
+
+  const displayRows = useMemo(() => {
+    const withDerived = rows.map((b) => {
+      const pct = Number(b.ebdPercent);
+      return {
+        ...b, pct,
+        ebdUsd: ebdAmountUsd(pct, b.costUsd),
+        ebdEur: ebdAmountEur(pct, b.costEur),
+        ebdEgp: ebdAmountEgp(pct, b.costEgp ?? 0),
+      };
+    });
+    const val = (b: (typeof withDerived)[number]): string | number => {
+      switch (sortKey) {
+        case "ref":        return b.toBookingRef ?? "";
+        case "hotel":       return b.hotel?.name ?? "";
+        case "roomType":    return b.hotelRoomType?.name ?? "";
+        case "arrDate":     return b.arrivalDate ?? "";
+        case "ebdPercent":  return b.pct;
+        case "costUsd":     return Number(b.costUsd ?? 0);
+        case "ebdUsd":      return b.ebdUsd;
+        case "costEur":     return Number(b.costEur ?? 0);
+        case "ebdEur":      return b.ebdEur;
+        case "costEgp":     return Number(b.costEgp ?? 0);
+        case "ebdEgp":      return b.ebdEgp;
+        case "ebdPayDate":  return b.ebdPaymentDate ?? "";
+      }
+    };
+    const sorted = [...withDerived].sort((a, b) => {
+      const av = val(a), bv = val(b);
+      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [rows, sortKey, sortDir]);
 
   function buildExport(): ExportSpec {
     return {
@@ -139,34 +187,61 @@ export default function EbdListPage() {
               <Table>
                 <THead>
                   <TR>
-                    <TH>Ref</TH><TH>Hotel</TH><TH>Room Type</TH><TH>Arr Date</TH>
-                    <TH className="text-right">EBD%</TH>
-                    <TH className="text-right">Cost USD</TH><TH className="text-right">EBD USD</TH>
-                    <TH className="text-right">Cost EUR</TH><TH className="text-right">EBD EUR</TH>
-                    <TH className="text-right">Cost EGP</TH><TH className="text-right">EBD EGP</TH>
-                    <TH>EBD Pay Date</TH>
+                    <TH className="cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort("ref")}>
+                      <span className="inline-flex items-center gap-1">Ref {sortIcon("ref")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort("hotel")}>
+                      <span className="inline-flex items-center gap-1">Hotel {sortIcon("hotel")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort("roomType")}>
+                      <span className="inline-flex items-center gap-1">Room Type {sortIcon("roomType")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort("arrDate")}>
+                      <span className="inline-flex items-center gap-1">Arr Date {sortIcon("arrDate")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none text-right hover:text-foreground" onClick={() => toggleSort("ebdPercent")}>
+                      <span className="inline-flex items-center justify-end gap-1">EBD% {sortIcon("ebdPercent")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none text-right hover:text-foreground" onClick={() => toggleSort("costUsd")}>
+                      <span className="inline-flex items-center justify-end gap-1">Cost USD {sortIcon("costUsd")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none text-right hover:text-foreground" onClick={() => toggleSort("ebdUsd")}>
+                      <span className="inline-flex items-center justify-end gap-1">EBD USD {sortIcon("ebdUsd")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none text-right hover:text-foreground" onClick={() => toggleSort("costEur")}>
+                      <span className="inline-flex items-center justify-end gap-1">Cost EUR {sortIcon("costEur")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none text-right hover:text-foreground" onClick={() => toggleSort("ebdEur")}>
+                      <span className="inline-flex items-center justify-end gap-1">EBD EUR {sortIcon("ebdEur")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none text-right hover:text-foreground" onClick={() => toggleSort("costEgp")}>
+                      <span className="inline-flex items-center justify-end gap-1">Cost EGP {sortIcon("costEgp")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none text-right hover:text-foreground" onClick={() => toggleSort("ebdEgp")}>
+                      <span className="inline-flex items-center justify-end gap-1">EBD EGP {sortIcon("ebdEgp")}</span>
+                    </TH>
+                    <TH className="cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort("ebdPayDate")}>
+                      <span className="inline-flex items-center gap-1">EBD Pay Date {sortIcon("ebdPayDate")}</span>
+                    </TH>
                   </TR>
                 </THead>
                 <TBody>
-                  {query.data.map((b) => {
-                    const pct = Number(b.ebdPercent);
-                    return (
-                      <TR key={b.id}>
-                        <TD className="font-medium">{b.toBookingRef}</TD>
-                        <TD className="max-w-[12rem] truncate">{b.hotel?.name}</TD>
-                        <TD className="text-muted-foreground">{b.hotelRoomType?.name}</TD>
-                        <TD>{fmtDate(b.arrivalDate)}</TD>
-                        <TD className="text-right tabular-nums">{(pct * 100).toFixed(1)}%</TD>
-                        <TD className="text-right tabular-nums">{formatMoney(b.costUsd, "USD")}</TD>
-                        <TD className="text-right tabular-nums">{formatMoney(ebdAmountUsd(pct, b.costUsd), "USD")}</TD>
-                        <TD className="text-right tabular-nums">{formatMoney(b.costEur, "EUR")}</TD>
-                        <TD className="text-right tabular-nums">{formatMoney(ebdAmountEur(pct, b.costEur), "EUR")}</TD>
-                        <TD className="text-right tabular-nums">{formatMoney(b.costEgp ?? 0, "EGP")}</TD>
-                        <TD className="text-right tabular-nums">{formatMoney(ebdAmountEgp(pct, b.costEgp ?? 0), "EGP")}</TD>
-                        <TD>{fmtDate(b.ebdPaymentDate)}</TD>
-                      </TR>
-                    );
-                  })}
+                  {displayRows.map((b) => (
+                    <TR key={b.id}>
+                      <TD className="font-medium">{b.toBookingRef}</TD>
+                      <TD className="max-w-[12rem] truncate">{b.hotel?.name}</TD>
+                      <TD className="text-muted-foreground">{b.hotelRoomType?.name}</TD>
+                      <TD>{fmtDate(b.arrivalDate)}</TD>
+                      <TD className="text-right tabular-nums">{(b.pct * 100).toFixed(1)}%</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.costUsd, "USD")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.ebdUsd, "USD")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.costEur, "EUR")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.ebdEur, "EUR")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.costEgp ?? 0, "EGP")}</TD>
+                      <TD className="text-right tabular-nums">{formatMoney(b.ebdEgp, "EGP")}</TD>
+                      <TD>{fmtDate(b.ebdPaymentDate)}</TD>
+                    </TR>
+                  ))}
                 </TBody>
               </Table>
             </div>
